@@ -8,7 +8,8 @@ Employee scheduling app with Twilio SMS notifications.
 shift-scheduler/
 ├── public/
 │   └── index.html        ← The scheduler app (frontend)
-├── index.js              ← Express server + SMS API
+├── index.js              ← Local dev server
+├── api/send-schedule.js  ← Vercel Serverless Twilio sender
 ├── package.json
 ├── .env.example          ← Copy to .env with your credentials
 └── README.md
@@ -26,7 +27,7 @@ shift-scheduler/
    - Add these three secrets:
      - `TWILIO_ACCOUNT_SID` → your Twilio Account SID
      - `TWILIO_AUTH_TOKEN` → your Twilio Auth Token
-     - `TWILIO_PHONE_NUMBER` → your Twilio number e.g. `+15551234567`
+     - `TWILIO_FROM_NUMBER` → your Twilio number e.g. `+15551234567`
 
 3. **Run it**
    - StackBlitz will auto-run `npm start`
@@ -51,3 +52,14 @@ shift-scheduler/
 - Free trial lets you send to **verified numbers only**
 - Go to Twilio Console → Verified Caller IDs to add test numbers
 - Upgrade to paid to send to any number (~$0.0079/text)
+
+
+## Vercel Environment Variables
+
+Set these in **Vercel Project → Settings → Environment Variables**:
+
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+
+The frontend calls `/api/send-schedule`, and Twilio credentials are only read inside the serverless function (`api/send-schedule.js`).
