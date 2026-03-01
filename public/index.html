@@ -312,13 +312,6 @@
 <div class="toast" id="toast">✓ Saved</div>
 
 <script>
-// ─────────────────────────────────────────────
-// CONFIG — set this to your Vercel deployment URL after deploying
-// e.g. "https://your-app.vercel.app"
-// Leave empty to test locally with a mock response
-const API_BASE = "";
-// ─────────────────────────────────────────────
-
 const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -684,10 +677,6 @@ function openPublishModal(){
     bodyHTML=`<div class="publish-warning">⚠ ${noPhone.length} employee${noPhone.length>1?"s":""} (${noPhone.map(e=>e.name.split(" ")[0]).join(", ")}) ${noPhone.length>1?"have":"has"} no phone number and won't receive a text. Add numbers in Manage Staff.</div>`+bodyHTML;
   }
 
-  if(!API_BASE){
-    bodyHTML+=`<div class="api-url-note">⚙ <strong>API_BASE not set.</strong> After deploying to Vercel, paste your deployment URL into the <code>API_BASE</code> variable at the top of this file.</div>`;
-  }
-
   document.getElementById("publishModalTitle").textContent="Publish Schedule";
   document.getElementById("publishModalBody").innerHTML=bodyHTML;
   document.getElementById("publishModalFooter").innerHTML=`
@@ -712,33 +701,34 @@ async function sendSchedule(){
     name: emp.name,
   }));
 
+  const ws=weekStart(weekOff);
+  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
+
   const btn=document.getElementById("sendBtn");
   btn.disabled=true;
   btn.innerHTML=`<span class="spinner"></span> Sending…`;
-
-  // If no API_BASE, show a mock result for demo
-  if(!API_BASE){
-    await new Promise(r=>setTimeout(r,1200));
-    showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"demo", reason:"API_BASE not configured — set your Vercel URL to send real texts." })));
-    return;
-  }
 
   try {
     const res=await fetch(`/api/send-schedule`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages}),
+      body:JSON.stringify({fromWeekStart,messages:messages.map(({to,body})=>({to,body}))}),
     });
     const data=await res.json();
-    const results=data.results.map((r,i)=>({ name:messages[i].name, ...r }));
-    showPublishResults(results);
+    if(!res.ok && !data.results){
+      throw new Error(data.error || `Send failed (${res.status})`);
+    }
+    const results=(data.results||[]).map((r,i)=>({ name:messages[i]?.name||"Unknown", ...r }));
+    showPublishResults(results, data.sent, data.failed);
   } catch(err){
     showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"failed", reason: err.message })));
   }
 }
 
-function showPublishResults(results){
-  const allOk=results.every(r=>r.status==="sent"||r.status==="demo");
+function showPublishResults(results, sentCountOverride, failedCountOverride){
+  const sentCount = Number.isInteger(sentCountOverride) ? sentCountOverride : results.filter(r=>r.status==="sent").length;
+  const failedCount = Number.isInteger(failedCountOverride) ? failedCountOverride : results.filter(r=>r.status!=="sent").length;
+  const allOk=failedCount===0;
   document.getElementById("publishModalTitle").textContent= allOk ? "✓ Schedule Sent!" : "Send Results";
   document.getElementById("publishModalBody").innerHTML=`
     <div class="publish-recipients" style="padding-top:16px">
@@ -756,7 +746,7 @@ function showPublishResults(results){
     </div>`;
   document.getElementById("publishModalFooter").innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Close</button>`;
-  if(allOk && results.some(r=>r.status==="sent")) flash("📤 Schedule sent!");
+  flash(`📤 Sent ${sentCount}, failed ${failedCount}`);
 }
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
