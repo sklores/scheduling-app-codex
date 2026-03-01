@@ -387,6 +387,56 @@ const USE_UNIFIED_GRID = false;
 let appBooted = false;
 window._supabaseClient = null;
 
+const OTP_COOLDOWN_SECONDS = 60;
+let otpCooldownRemaining = 0;
+let otpCooldownTimer = null;
+
+function setSendMagicLinkButtonState(secondsLeft) {
+  const btn = document.getElementById("sendMagicLinkBtn");
+  if (!btn) return;
+  if (secondsLeft > 0) {
+    btn.disabled = true;
+    btn.textContent = `Send magic link (${secondsLeft}s)`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Send magic link";
+  }
+}
+
+function startOtpCooldown(seconds = OTP_COOLDOWN_SECONDS) {
+  otpCooldownRemaining = seconds;
+  setSendMagicLinkButtonState(otpCooldownRemaining);
+  if (otpCooldownTimer) clearInterval(otpCooldownTimer);
+  otpCooldownTimer = setInterval(() => {
+    otpCooldownRemaining = Math.max(0, otpCooldownRemaining - 1);
+    setSendMagicLinkButtonState(otpCooldownRemaining);
+    if (otpCooldownRemaining === 0) {
+      clearInterval(otpCooldownTimer);
+      otpCooldownTimer = null;
+    }
+  }, 1000);
+}
+
+function parseAuthCallbackState() {
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams((url.hash || "").startsWith("#") ? url.hash.slice(1) : "");
+  const query = url.searchParams;
+
+  const hasCode = !!query.get("code");
+  const hasMagicLinkType = query.get("type") === "magiclink" || hashParams.get("type") === "magiclink";
+  const hasTokenPair = !!(query.get("access_token") || hashParams.get("access_token"))
+    || !!(query.get("refresh_token") || hashParams.get("refresh_token"));
+
+  const authError = query.get("error") || hashParams.get("error");
+
+  return {
+    hasCode,
+    hasAuthParams: hasCode || hasMagicLinkType || hasTokenPair,
+    authError,
+    cleanPath: `${url.origin}${url.pathname}`,
+  };
+}
+
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
   document.getElementById("appShell").style.display = "none";
@@ -416,29 +466,40 @@ function showFatal(err) {
     </div>`;
 }
 
-async function initAuthGate() {
+async function initAuthGate(defaultLoginMessage = "") {
   document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
     e.preventDefault();
     await window._supabaseClient.auth.signOut();
     window.location.reload();
   });
 
+  setSendMagicLinkButtonState(otpCooldownRemaining);
+
   document.getElementById("sendMagicLinkBtn")?.addEventListener("click", async () => {
+    if (otpCooldownRemaining > 0) return;
     const email = document.getElementById("loginEmail").value.trim();
     if (!email) {
       showLoginGate("Enter an email address.");
       return;
     }
+
+    startOtpCooldown();
     const { error } = await window._supabaseClient.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+      options: { emailRedirectTo: window.location.origin },
     });
-    showLoginGate(error ? error.message : "Check your email.");
+
+    if (error) {
+      showLoginGate(error.message);
+      return;
+    }
+
+    showLoginGate("Check your email.");
   });
 
   const { data } = await window._supabaseClient.auth.getSession();
   if (data && data.session) showAppShell();
-  else showLoginGate();
+  else showLoginGate(defaultLoginMessage);
 
   window._supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (session) showAppShell();
@@ -1232,7 +1293,26 @@ function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
   }
 
   window._supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
-  await initAuthGate();
+
+  const callbackState = parseAuthCallbackState();
+  let loginMessage = "";
+
+  if (callbackState.authError) {
+    loginMessage = "This sign-in link expired. Request a new one.";
+  }
+
+  if (callbackState.hasAuthParams && callbackState.hasCode) {
+    const { error } = await window._supabaseClient.auth.exchangeCodeForSession(window.location.href);
+    if (error) {
+      throw new Error(error.message || "Unable to complete sign-in link exchange.");
+    }
+  }
+
+  if (callbackState.hasAuthParams || callbackState.authError) {
+    history.replaceState({}, document.title, callbackState.cleanPath);
+  }
+
+  await initAuthGate(loginMessage);
 })().catch(showFatal);
 </script>
 </body>
