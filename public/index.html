@@ -13,6 +13,7 @@
     --accent: #c84b2f; --accent-light: #fde8e3;
     --green: #2d5a27; --green-light: #e8f5e3;
     --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+    --rowH: 72px; --headH: 58px;
   }
   body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
@@ -47,8 +48,8 @@
   /* ── App Body ── */
   .app-body { display: flex; height: calc(100vh - 52px - 49px); overflow: hidden; }
   .sidebar { width: 200px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
-  .sidebar-header { padding: 10px 14px; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
-  .employee-row { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+  .sidebar-header { padding: 10px 14px; height: var(--headH); display: flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); box-sizing: border-box; }
+  .employee-row { padding: 10px 14px; height: var(--rowH); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; box-sizing: border-box; }
   .employee-row:hover { background: var(--bg); }
   .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: #fff; }
   .emp-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -65,7 +66,7 @@
   .day-date { font-size: 18px; font-weight: 600; line-height: 1.2; }
   .day-header.today .day-date { color: var(--accent); }
   .day-total { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 72px; padding: 6px; background: var(--surface); transition: background 0.1s; }
+  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: var(--rowH); padding: 6px; background: var(--surface); transition: background 0.1s; box-sizing: border-box; }
   .grid-cell:last-child { border-right: none; }
   .grid-cell:hover { background: #fafaf8; }
   .grid-cell.alt { background: #faf9f6; }
@@ -86,8 +87,8 @@
   .add-shift-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
   /* ── Staff Drawer ── */
-  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
-  .drawer-overlay.open { display: block; }
+  .drawer-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
+  .drawer-overlay.open { display: block; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: -520px; width: 520px; height: 100vh; background: var(--surface); box-shadow: -8px 0 40px rgba(0,0,0,0.15); z-index: 301; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1); }
   .drawer.open { right: 0; }
   .drawer-header { background: var(--text); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
@@ -137,8 +138,8 @@
   .drawer-total-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
 
   /* ── Shift Modal ── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
-  .modal-overlay.open { display: flex; }
+  .modal-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; pointer-events: auto; }
   .modal { background: var(--surface); border-radius: 4px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
   .modal-header { padding: 16px 20px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
   .modal-header h2 { font-size: 14px; font-weight: 600; font-family: var(--mono); }
@@ -190,6 +191,24 @@
 </style>
 </head>
 <body>
+<div id="bootDiag" style="position:fixed;top:8px;right:8px;z-index:1200;background:rgba(0,0,0,0.9);color:#9ef59e;padding:8px 10px;border:1px solid #355;border-radius:6px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;min-width:280px;max-width:360px;box-shadow:0 8px 24px rgba(0,0,0,0.3)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+    <strong style="color:#d5ffd5">BOOT DIAG</strong>
+    <span id="bootDiagElapsed">0ms</span>
+  </div>
+  <div id="bootDiagStep">step: init</div>
+  <div id="bootDiagSizes">ls bytes: emp=0 shifts=0 settings=0</div>
+  <div id="bootDiagCounts">counts: employees=0 shifts=0</div>
+  <div id="bootDiagLoops">calls(10s): grid=0 sync=0</div>
+  <div id="bootDiagWarn" style="color:#ffd58a;min-height:14px"></div>
+  <div id="bootDiagProbe" style="color:#b6d7ff;min-height:28px;white-space:pre-wrap;margin-top:4px"></div>
+  <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+    <button id="bootDiagProbeBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #58a;background:#123;color:#cde6ff;cursor:pointer">Probe Click Layer</button>
+    <button id="bootDiagUnblockBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #a85;background:#321;color:#ffe3c2;cursor:pointer">Unblock UI</button>
+    <button id="bootDiagResetBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #6a6;background:#132;color:#d5ffd5;cursor:pointer">Reset Data + Reload</button>
+    <button id="bootDiagDisableSyncBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #aa6;background:#331;color:#ffefc2;cursor:pointer">Disable Layout Sync + Reload</button>
+  </div>
+</div>
 
 <header>
   <div class="logo">sh<span>i</span>ft</div>
@@ -311,16 +330,211 @@
 <div class="toast" id="toast">✓ Saved</div>
 
 <script>
-// ─────────────────────────────────────────────
-// CONFIG — set this to your Vercel deployment URL after deploying
-// e.g. "https://your-app.vercel.app"
-// Leave empty to test locally with a mock response
-const API_BASE = "";
-// ─────────────────────────────────────────────
-
 const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TIME_STEP_MINUTES = 30;
+const PERF_INIT_LOGS = true;
+
+window.__perf = window.__perf || { marks: [] };
+window.__SAFE_MODE = false;
+window.__firstInteractive = false;
+window.__syncInProgress = false;
+window.__LAYOUT_SYNC_DISABLED = localStorage.getItem("DISABLE_LAYOUT_SYNC") === "1";
+
+window.__BOOT_EMP_COUNT = 0;
+window.__BOOT_SHIFT_COUNT = 0;
+
+const BOOT_DIAG = {
+  start: performance.now(),
+  lastStep: "init",
+  stepStarts: {},
+  stepDurations: {},
+  gridCalls: 0,
+  syncCalls: 0,
+  loopWarn: "",
+  loopWindowMs: 10000,
+  threshold: 30,
+};
+
+function getLocalStorageSize(key) {
+  return (localStorage.getItem(key) || "").length;
+}
+
+function updateBootDiag(extraStep) {
+  const elapsed = Math.round(performance.now() - BOOT_DIAG.start);
+  const step = extraStep || BOOT_DIAG.lastStep;
+  const empBytes = getLocalStorageSize("sh_emp");
+  const shiftBytes = getLocalStorageSize("sh_shifts");
+  const settingsBytes = getLocalStorageSize("sh_version") + getLocalStorageSize("DISABLE_LAYOUT_SYNC");
+
+  const elapsedEl = document.getElementById("bootDiagElapsed");
+  const stepEl = document.getElementById("bootDiagStep");
+  const sizeEl = document.getElementById("bootDiagSizes");
+  const countsEl = document.getElementById("bootDiagCounts");
+  const loopsEl = document.getElementById("bootDiagLoops");
+  const warnEl = document.getElementById("bootDiagWarn");
+  if (!elapsedEl || !stepEl || !sizeEl || !countsEl || !loopsEl || !warnEl) return;
+
+  elapsedEl.textContent = `${elapsed}ms`;
+  stepEl.textContent = `step: ${step}`;
+  sizeEl.textContent = `ls bytes: emp=${empBytes} shifts=${shiftBytes} settings=${settingsBytes}`;
+  countsEl.textContent = `counts: employees=${window.__BOOT_EMP_COUNT || 0} shifts=${window.__BOOT_SHIFT_COUNT || 0}`;
+  loopsEl.textContent = `calls(10s): grid=${BOOT_DIAG.gridCalls} sync=${BOOT_DIAG.syncCalls}`;
+  warnEl.textContent = BOOT_DIAG.loopWarn || (window.__LAYOUT_SYNC_DISABLED ? "layout sync disabled via flag" : "");
+}
+
+function mark(name) {
+  const now = performance.now();
+  window.__perf.marks.push({ name, t: now });
+  BOOT_DIAG.lastStep = name;
+  if (name.endsWith(":start")) {
+    BOOT_DIAG.stepStarts[name] = now;
+  } else if (name.endsWith(":end")) {
+    const base = name.replace(":end", "");
+    const st = BOOT_DIAG.stepStarts[`${base}:start`];
+    if (typeof st === "number") {
+      const dur = now - st;
+      BOOT_DIAG.stepDurations[base] = dur;
+      if (dur > 200) {
+        console.warn(`[perf] slow phase detected: ${base} (${dur.toFixed(2)}ms)`);
+      }
+      BOOT_DIAG.lastStep = `${name} (${dur.toFixed(1)}ms)`;
+    }
+  }
+  updateBootDiag();
+}
+
+setInterval(() => updateBootDiag(), 250);
+
+function trackLoop(kind) {
+  const elapsed = performance.now() - BOOT_DIAG.start;
+  if (elapsed > BOOT_DIAG.loopWindowMs) return;
+  if (kind === "grid") BOOT_DIAG.gridCalls += 1;
+  if (kind === "sync") BOOT_DIAG.syncCalls += 1;
+
+  if (!window.__LAYOUT_SYNC_DISABLED && (BOOT_DIAG.gridCalls > BOOT_DIAG.threshold || BOOT_DIAG.syncCalls > BOOT_DIAG.threshold)) {
+    window.__LAYOUT_SYNC_DISABLED = true;
+    BOOT_DIAG.loopWarn = `POSSIBLE LOOP: syncLayout called ${BOOT_DIAG.syncCalls} times / grid ${BOOT_DIAG.gridCalls} times. Auto-disabled layout sync.`;
+    console.warn("[perf] auto-disabled layout sync due to possible loop", { gridCalls: BOOT_DIAG.gridCalls, syncCalls: BOOT_DIAG.syncCalls });
+  }
+  updateBootDiag();
+}
+
+function perfLog(label, startedAt) {
+  if (!PERF_INIT_LOGS) return;
+  const ms = (performance.now() - startedAt).toFixed(2);
+  console.log(`[perf] ${label}: ${ms}ms`);
+}
+
+function warnSlowPhase(name, startedAt) {
+  const elapsed = performance.now() - startedAt;
+  if (elapsed > 200) {
+    console.warn(`[perf] slow phase detected: ${name} (${elapsed.toFixed(2)}ms)`);
+  }
+}
+
+function logPerfSummaryIfSlow() {
+  const marks = window.__perf?.marks || [];
+  if (marks.length < 2) return;
+  const deltas = [];
+  for (let i = 1; i < marks.length; i++) {
+    deltas.push({
+      phase: `${marks[i - 1].name} -> ${marks[i].name}`,
+      ms: marks[i].t - marks[i - 1].t,
+    });
+  }
+  if (deltas.some(d => d.ms > 200)) {
+    console.warn("[perf] startup phase timing summary", deltas.map(d => ({ phase: d.phase, ms: +d.ms.toFixed(2) })));
+  }
+}
+
+function resetLocalDataAndReload() {
+  localStorage.removeItem("sh_emp");
+  localStorage.removeItem("sh_shifts");
+  localStorage.removeItem("sh_version");
+  localStorage.removeItem("DISABLE_LAYOUT_SYNC");
+  location.reload();
+}
+
+function disableLayoutSyncAndReload() {
+  localStorage.setItem("DISABLE_LAYOUT_SYNC", "1");
+  location.reload();
+}
+
+document.getElementById("bootDiagResetBtn")?.addEventListener("click", resetLocalDataAndReload);
+document.getElementById("bootDiagDisableSyncBtn")?.addEventListener("click", disableLayoutSyncAndReload);
+updateBootDiag("boot:overlay-ready");
+
+function describeElement(el) {
+  if (!el) return "none";
+  const cs = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return `${el.tagName.toLowerCase()}#${el.id||""}.${(el.className||"").toString().trim().replace(/\s+/g,".")} | pe=${cs.pointerEvents} pos=${cs.position} z=${cs.zIndex} op=${cs.opacity} vis=${cs.visibility} rect=${Math.round(rect.width)}x${Math.round(rect.height)}`;
+}
+
+function setProbeText(text) {
+  const el = document.getElementById("bootDiagProbe");
+  if (el) el.textContent = text;
+}
+
+function probeClickLayer() {
+  const x = Math.round(window.innerWidth * 0.5);
+  const y = Math.round(window.innerHeight * 0.5);
+  const topEl = document.elementFromPoint(x, y);
+  setProbeText(`probe @ ${x},${y}\n${describeElement(topEl)}`);
+  return topEl;
+}
+
+function isSchedulerSurface(el) {
+  if (!el) return false;
+  if (el.closest("#bootDiag")) return true;
+  return !!el.closest("header, .toolbar, .app-body, .sidebar, .grid-wrap, .schedule-grid, .drawer, .modal");
+}
+
+function unblockUI() {
+  const changed = [];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const all = Array.from(document.body.querySelectorAll("*"));
+
+  all.forEach((el) => {
+    if (el.id === "bootDiag" || el.closest("#bootDiag")) return;
+    const cs = getComputedStyle(el);
+    if (!["fixed", "absolute"].includes(cs.position)) return;
+    if (cs.pointerEvents === "none") return;
+    const rect = el.getBoundingClientRect();
+    const coversMost = rect.width >= vw * 0.85 && rect.height >= vh * 0.85;
+    if (!coversMost) return;
+    const looksOverlay = el.className.toString().includes("overlay") || Number(cs.zIndex || 0) >= 200 || Number(cs.opacity) < 0.2;
+    if (!looksOverlay) return;
+    el.style.pointerEvents = "none";
+    el.style.display = "none";
+    changed.push(describeElement(el));
+  });
+
+  if (changed.length) {
+    BOOT_DIAG.loopWarn = `Unblocked ${changed.length} overlay element(s)`;
+    setProbeText(`unblock changed:\n${changed.join("\n")}`);
+  } else {
+    setProbeText("unblock changed: none");
+  }
+  updateBootDiag("ui:unblock");
+  return changed;
+}
+
+document.getElementById("bootDiagProbeBtn")?.addEventListener("click", probeClickLayer);
+document.getElementById("bootDiagUnblockBtn")?.addEventListener("click", unblockUI);
+
+function showSafeModeBanner() {
+  if (document.getElementById("safeModeBanner")) return;
+  const banner = document.createElement("div");
+  banner.id = "safeModeBanner";
+  banner.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:999;background:#fff3e0;border:1px solid #f5c97a;color:#7a4a00;padding:10px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);display:flex;align-items:center;justify-content:space-between;gap:10px";
+  banner.innerHTML = `<span>Safe Mode: layout sync disabled to keep app responsive</span><button id="safeModeResetBtn" style="border:1px solid #e3ad52;background:#fff;color:#7a4a00;border-radius:4px;padding:4px 8px;cursor:pointer;font-family:var(--mono);font-size:11px">Reset local data</button>`;
+  document.body.appendChild(banner);
+  document.getElementById("safeModeResetBtn").addEventListener("click", resetLocalDataAndReload);
+}
 
 // ── Persist ──
 function loadData() {
@@ -334,6 +548,9 @@ function loadData() {
   } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; }
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
+  window.__BOOT_EMP_COUNT = employees.length;
+  window.__BOOT_SHIFT_COUNT = shifts.length;
+  updateBootDiag("parseStorage:parsed-counts");
 }
 function persist() {
   localStorage.setItem("sh_emp",    JSON.stringify(employees));
@@ -359,7 +576,9 @@ function seed() {
 }
 
 let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
-loadData();
+let lastHeadH = 0;
+let lastRowH = 0;
+let fontsSyncDone = false;
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
@@ -374,9 +593,12 @@ function weekStart(off=0) {
   d.setDate(d.getDate()+diff+off*7); d.setHours(0,0,0,0); return d;
 }
 function cleanPhone(p) {
-  // strip spaces/dashes, ensure + prefix for Twilio
-  const digits = p.replace(/[^\d+]/g,"");
-  return digits.startsWith("+") ? digits : "+1"+digits.replace(/\D/g,"");
+  const raw = (p||"").trim();
+  if(!raw) return null;
+  if(raw.startsWith("+")) return /^\+\d{10,15}$/.test(raw) ? raw : null;
+  const digits = raw.replace(/\D/g,"");
+  if(digits.length===10) return `+1${digits}`;
+  return null;
 }
 
 // ── Toast ──
@@ -386,7 +608,38 @@ function flash(msg="✓ Saved") {
 }
 
 // ── Render ──
-function render() {
+function syncLayoutHeights() {
+  if (window.__SAFE_MODE || window.__LAYOUT_SYNC_DISABLED || window.__syncInProgress) return;
+  window.__syncInProgress = true;
+  const t0 = performance.now();
+  trackLoop("sync");
+  mark("syncLayout:start");
+
+  const root = document.documentElement;
+  const headerCell = document.querySelector("#scheduleGrid .day-header");
+  const firstGridCell = document.querySelector("#scheduleGrid .grid-cell");
+
+  // Batch reads first
+  const headH = headerCell ? Math.round(headerCell.getBoundingClientRect().height * 100) / 100 : 0;
+  const rowH = firstGridCell ? Math.round(firstGridCell.getBoundingClientRect().height * 100) / 100 : 0;
+
+  // Then writes only if changed
+  if (headH > 0 && headH !== lastHeadH) {
+    root.style.setProperty("--headH", `${headH}px`);
+    lastHeadH = headH;
+  }
+  if (rowH > 0 && rowH !== lastRowH) {
+    root.style.setProperty("--rowH", `${rowH}px`);
+    lastRowH = rowH;
+  }
+
+  perfLog("syncLayoutHeights", t0);
+  warnSlowPhase("syncLayoutHeights", t0);
+  mark("syncLayout:end");
+  window.__syncInProgress = false;
+}
+
+function updateWeekStats() {
   const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
   const opt={month:"short",day:"numeric"};
   document.getElementById("weekLabel").textContent=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
@@ -395,10 +648,18 @@ function render() {
   document.getElementById("statHours").textContent=totalH.toFixed(1)+"h";
   document.getElementById("statShifts").textContent=shifts.length;
   document.getElementById("statCost").textContent=fmtD(totalC);
-  renderSidebar(); renderGrid(); renderDrawer();
+}
+
+function render() {
+  updateWeekStats();
+  renderSidebar();
+  renderGrid();
+  renderDrawer();
+  syncLayoutHeights();
 }
 
 function renderSidebar() {
+  const t0 = performance.now();
   document.getElementById("sidebarList").innerHTML = employees.length===0
     ? `<div class="empty-state">No staff yet.<br>Open Manage Staff →</div>`
     : employees.map(e=>{
@@ -415,9 +676,12 @@ function renderSidebar() {
           </div>
         </div>`;
       }).join("");
+  perfLog("renderSidebar", t0);
 }
 
 function renderGrid() {
+  trackLoop("grid");
+  const t0 = performance.now();
   const ws=weekStart(weekOff);
   const today=new Date(); today.setHours(0,0,0,0);
   let html=DAYS.map((d,i)=>{
@@ -450,6 +714,7 @@ function renderGrid() {
     });
   }
   document.getElementById("scheduleGrid").innerHTML=html;
+  perfLog("renderGrid", t0);
 }
 
 function renderDrawer() {
@@ -551,7 +816,7 @@ function updatePhone(id,val){
 // ── Shifts ──
 function buildTimeOptions() {
   const opts=[];
-  for(let h=0;h<24;h++) for(let m=0;m<60;m+=15){
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=TIME_STEP_MINUTES){
     const val=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
     const ampm=h>=12?"pm":"am"; const hh=h%12||12;
     const label=m===0?`${hh}:00 ${ampm}`:`${hh}:${String(m).padStart(2,"0")} ${ampm}`;
@@ -613,33 +878,57 @@ document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="E
 
 // ── Schedule message builder ──
 function buildScheduleMessage(emp) {
-  const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
-  const opt={month:"short",day:"numeric"};
-  const weekStr=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
+  const ws=weekStart(weekOff);
+  const headerDate=`${DAYS[0]} ${ws.getMonth()+1}/${ws.getDate()}`;
+  const empShifts=shifts
+    .filter(s=>s.empId===emp.id)
+    .sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
 
-  const empShifts=shifts.filter(s=>s.empId===emp.id);
+  const shortTime=(t)=>{
+    const [h,m]=t.split(":").map(Number);
+    const hh=h%12||12;
+    return `${hh}:${String(m).padStart(2,"0")}${h>=12?"p":"a"}`;
+  };
+
   if(!empShifts.length){
-    return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}: You have no shifts scheduled this week.`;
+    return `GCDC Schedule (${headerDate}):\nNo shifts this week.\nReply STOP to opt out.`;
   }
-  const sorted=empShifts.slice().sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
-  const lines=sorted.map(s=>{
-    const note=s.note?` (${s.note})`:"";
-    return `  ${DAY_FULL[s.day]}: ${fmtT(s.start)}–${fmtT(s.end)}${note}`;
-  });
-  const totalH=empShifts.reduce((a,s)=>a+hrs(s),0);
-  return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}:\n${lines.join("\n")}\nTotal: ${totalH.toFixed(1)} hrs. Reply STOP to unsubscribe.`;
+
+  const lines=empShifts.map(s=>`${DAYS[s.day]} ${shortTime(s.start)}–${shortTime(s.end)}`);
+  return `GCDC Schedule (${headerDate}):\n${lines.join("\n")}\nReply STOP to opt out.`;
 }
+
+function getPublishRecipients() {
+  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
+  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
+  const recipients=[];
+  const missingPhone=[];
+  const invalidPhone=[];
+
+  scheduledEmps.forEach(emp=>{
+    if(!emp.phone || !emp.phone.trim()) {
+      missingPhone.push(emp);
+      return;
+    }
+    const to = cleanPhone(emp.phone);
+    if(!to){
+      invalidPhone.push(emp);
+      return;
+    }
+    recipients.push({ emp, to, body: buildScheduleMessage(emp) });
+  });
+
+  return { scheduledEmps, recipients, missingPhone, invalidPhone };
+}
+
 
 // ── Publish flow ──
 function openPublishModal(){
+  mark("publishInit");
   if(!shifts.length){ alert("No shifts scheduled yet."); return; }
 
-  // Figure out who has shifts
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
-  const withPhone=scheduledEmps.filter(e=>e.phone&&e.phone.trim());
-  const noPhone=scheduledEmps.filter(e=>!e.phone||!e.phone.trim());
-  const sampleEmp=withPhone[0]||scheduledEmps[0];
+  const { scheduledEmps, recipients, missingPhone, invalidPhone } = getPublishRecipients();
+  const sampleEmp = recipients[0]?.emp || scheduledEmps[0];
 
   let bodyHTML=`
     <div class="publish-preview">
@@ -649,22 +938,27 @@ function openPublishModal(){
     <div class="publish-recipients">
       <div class="publish-recipients-label">Recipients (${scheduledEmps.length} scheduled this week)</div>
       ${scheduledEmps.map(e=>{
-        const has=!!(e.phone&&e.phone.trim());
+        const formatted = cleanPhone(e.phone||"");
+        const ok = !!formatted;
+        const status = !e.phone||!e.phone.trim() ? "no phone" : ok ? "will receive SMS" : "invalid phone";
         return `<div class="recipient-row">
           <div class="avatar" style="background:${e.color};width:28px;height:28px;font-size:11px;flex-shrink:0">${ini(e.name)}</div>
           <div class="recipient-name">${e.name}</div>
-          <div class="recipient-phone">${has?e.phone:"—"}</div>
-          <span class="recipient-badge ${has?"badge-ok":"badge-warn"}">${has?"will receive SMS":"no phone"}</span>
+          <div class="recipient-phone">${e.phone||"—"}</div>
+          <span class="recipient-badge ${ok?"badge-ok":"badge-warn"}">${status}</span>
         </div>`;
       }).join("")}
     </div>`;
 
-  if(noPhone.length>0){
-    bodyHTML=`<div class="publish-warning">⚠ ${noPhone.length} employee${noPhone.length>1?"s":""} (${noPhone.map(e=>e.name.split(" ")[0]).join(", ")}) ${noPhone.length>1?"have":"has"} no phone number and won't receive a text. Add numbers in Manage Staff.</div>`+bodyHTML;
-  }
-
-  if(!API_BASE){
-    bodyHTML+=`<div class="api-url-note">⚙ <strong>API_BASE not set.</strong> After deploying to Vercel, paste your deployment URL into the <code>API_BASE</code> variable at the top of this file.</div>`;
+  if(missingPhone.length || invalidPhone.length){
+    const warnings=[];
+    if(missingPhone.length){
+      warnings.push(`${missingPhone.length} missing phone`);
+    }
+    if(invalidPhone.length){
+      warnings.push(`${invalidPhone.length} invalid phone format`);
+    }
+    bodyHTML=`<div class="publish-warning">⚠ ${warnings.join(" · ")} — these employees will be skipped.</div>`+bodyHTML;
   }
 
   document.getElementById("publishModalTitle").textContent="Publish Schedule";
@@ -673,74 +967,157 @@ function openPublishModal(){
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Cancel</button>
     <button class="btn" style="background:var(--green);color:#fff;border-color:var(--green)"
       onclick="sendSchedule()" id="sendBtn"
-      ${withPhone.length===0?"disabled":""}>
-      Send ${withPhone.length} Text${withPhone.length!==1?"s":""}
+      ${recipients.length===0?"disabled":""}>
+      Send ${recipients.length} Text${recipients.length!==1?"s":""}
     </button>`;
 
   document.getElementById("publishModal").classList.add("open");
 }
 
-async function sendSchedule(){
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const recipients=employees.filter(e=>scheduledEmpIds.includes(e.id)&&e.phone&&e.phone.trim());
-  if(!recipients.length){ alert("No recipients with phone numbers."); return; }
 
-  const messages=recipients.map(emp=>({
-    to: cleanPhone(emp.phone),
-    body: buildScheduleMessage(emp),
-    name: emp.name,
-  }));
+async function sendSchedule(){
+  const { recipients } = getPublishRecipients();
+  if(!recipients.length){ alert("No valid recipients with shifts this week."); return; }
+
+  const messages=recipients.map(({emp,to,body})=>({ to, body, name: emp.name }));
+  const ws=weekStart(weekOff);
+  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
   const btn=document.getElementById("sendBtn");
+  const originalBtnText=btn.innerHTML;
   btn.disabled=true;
   btn.innerHTML=`<span class="spinner"></span> Sending…`;
-
-  // If no API_BASE, show a mock result for demo
-  if(!API_BASE){
-    await new Promise(r=>setTimeout(r,1200));
-    showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"demo", reason:"API_BASE not configured — set your Vercel URL to send real texts." })));
-    return;
-  }
 
   try {
     const res=await fetch(`/api/send-schedule`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages}),
+      body:JSON.stringify({fromWeekStart,messages:messages.map(({to,body})=>({to,body}))}),
     });
     const data=await res.json();
-    const results=data.results.map((r,i)=>({ name:messages[i].name, ...r }));
-    showPublishResults(results);
+    if(!res.ok && !data.results){
+      throw new Error(data.error || `Send failed (${res.status})`);
+    }
+    const results=(data.results||[]).map((r,i)=>({ name:messages[i]?.name||"Unknown", ...r }));
+    showPublishResults(results, data.sent, data.failed);
   } catch(err){
     showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"failed", reason: err.message })));
+  } finally {
+    if(document.getElementById("sendBtn")){
+      btn.disabled=false;
+      btn.innerHTML=originalBtnText;
+    }
   }
 }
 
-function showPublishResults(results){
-  const allOk=results.every(r=>r.status==="sent"||r.status==="demo");
+
+function showPublishResults(results, sentCountOverride, failedCountOverride){
+  const sentCount = Number.isInteger(sentCountOverride) ? sentCountOverride : results.filter(r=>r.status==="sent").length;
+  const failedCount = Number.isInteger(failedCountOverride) ? failedCountOverride : results.filter(r=>r.status!=="sent").length;
+  const allOk=failedCount===0;
+  const failureItems = results.filter(r=>r.status!=="sent");
+
   document.getElementById("publishModalTitle").textContent= allOk ? "✓ Schedule Sent!" : "Send Results";
   document.getElementById("publishModalBody").innerHTML=`
     <div class="publish-recipients" style="padding-top:16px">
-      <div class="publish-recipients-label">Results</div>
+      <div class="publish-recipients-label">Sent ${sentCount} / Failed ${failedCount}</div>
       ${results.map(r=>`
         <div class="result-item">
           <div class="result-name">${r.name}</div>
           <div class="result-detail">${r.to||""}</div>
-          <span class="recipient-badge ${r.status==="sent"?"badge-sent":r.status==="demo"?"badge-ok":"badge-fail"}">
-            ${r.status==="sent"?"✓ sent":r.status==="demo"?"demo":r.status==="skipped"?"skipped":"✗ failed"}
+          <span class="recipient-badge ${r.status==="sent"?"badge-sent":"badge-fail"}">
+            ${r.status==="sent"?"✓ sent":"✗ failed"}
           </span>
         </div>
-        ${r.reason?`<div style="padding:2px 0 6px 2px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">${escHtml(r.reason)}</div>`:""}
       `).join("")}
+      ${failureItems.length?`
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text-muted)">Failure details (${failureItems.length})</summary>
+          <div style="margin-top:8px">
+            ${failureItems.map(r=>`<div style="padding:4px 0;font-size:12px;color:var(--text-muted)"><strong style="color:var(--text)">${r.name}</strong>: ${escHtml(r.reason||"Unknown error")}</div>`).join("")}
+          </div>
+        </details>`:""}
     </div>`;
   document.getElementById("publishModalFooter").innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Close</button>`;
-  if(allOk && results.some(r=>r.status==="sent")) flash("📤 Schedule sent!");
+  flash(`Sent ${sentCount} / Failed ${failedCount}`);
+}
+
+
+function bootInitialRender() {
+  const bootStart = performance.now();
+  mark("boot:start");
+
+  const watchdog = setTimeout(() => {
+    if (!window.__firstInteractive) {
+      window.__SAFE_MODE = true;
+      window.__LAYOUT_SYNC_DISABLED = true;
+      BOOT_DIAG.loopWarn = "SAFE MODE: startup exceeded 2000ms before first interactive paint";
+      console.warn("[perf] Safe Mode enabled after startup watchdog timeout");
+      showSafeModeBanner();
+      logPerfSummaryIfSlow();
+    }
+  }, 2000);
+
+  const loadStart = performance.now();
+  mark("parseStorage:start");
+  loadData();
+  perfLog("loadData/localStorage", loadStart);
+  warnSlowPhase("parseStorage", loadStart);
+  mark("parseStorage:end");
+
+  updateWeekStats();
+
+  setTimeout(() => {
+    const topEl = probeClickLayer();
+    if (!isSchedulerSurface(topEl)) {
+      BOOT_DIAG.loopWarn = "Watchdog: detected blocking layer at center, auto-unblocking";
+      unblockUI();
+    }
+  }, 750);
+
+  requestAnimationFrame(() => {
+    const staffStart = performance.now();
+    mark("renderStaff:start");
+    renderSidebar();
+    warnSlowPhase("renderStaff", staffStart);
+    mark("renderStaff:end");
+    window.__firstInteractive = true;
+
+    requestAnimationFrame(() => {
+      const gridStart = performance.now();
+      mark("renderGrid:start");
+      renderGrid();
+      warnSlowPhase("renderGrid", gridStart);
+      mark("renderGrid:end");
+
+      requestAnimationFrame(() => {
+        renderDrawer();
+        if (!window.__SAFE_MODE) syncLayoutHeights();
+        clearTimeout(watchdog);
+        mark("boot:end");
+        warnSlowPhase("bootTotal", bootStart);
+        logPerfSummaryIfSlow();
+      });
+    });
+  });
 }
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-render();
+let syncLayoutResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(syncLayoutResizeTimer);
+  syncLayoutResizeTimer = setTimeout(() => { if (!window.__SAFE_MODE && !window.__LAYOUT_SYNC_DISABLED) syncLayoutHeights(); }, 200);
+});
+
+document.fonts?.ready.then(() => {
+  if (fontsSyncDone) return;
+  fontsSyncDone = true;
+  if (!window.__SAFE_MODE && !window.__LAYOUT_SYNC_DISABLED) requestAnimationFrame(syncLayoutHeights);
+});
+
+bootInitialRender();
 </script>
 </body>
 </html>
