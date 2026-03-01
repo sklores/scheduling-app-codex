@@ -322,6 +322,7 @@ const API_BASE = "";
 const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TIME_STEP_MINUTES = 30;
 
 // ── Persist ──
 function loadData() {
@@ -571,7 +572,7 @@ function updatePhone(id,val){
 // ── Shifts ──
 function buildTimeOptions() {
   const opts=[];
-  for(let h=0;h<24;h++) for(let m=0;m<60;m+=15){
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=TIME_STEP_MINUTES){
     const val=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
     const ampm=h>=12?"pm":"am"; const hh=h%12||12;
     const label=m===0?`${hh}:00 ${ampm}`:`${hh}:${String(m).padStart(2,"0")} ${ampm}`;
