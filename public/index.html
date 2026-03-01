@@ -643,6 +643,22 @@ function cleanPhone(p) {
   return null;
 }
 
+function randomDigits(len=4){
+  let out="";
+  for(let i=0;i<len;i++) out += String(Math.floor(Math.random()*10));
+  return out;
+}
+function generateEmployeeCode(name=""){
+  const letters = name.toUpperCase().replace(/[^A-Z]/g,"");
+  const prefix = (letters.slice(0,2) || "EM").padEnd(2,"X");
+  return `${prefix}${Math.floor(1000 + Math.random()*9000)}`;
+}
+async function sha256Hex(input){
+  const data = new TextEncoder().encode(String(input));
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
 // ── Toast ──
 function flash(msg="✓ Saved") {
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
@@ -897,17 +913,33 @@ function closeDrawer(){
 }
 
 // ── Employees ──
-function addEmployee(){
+async function addEmployee(){
   const name=document.getElementById("newName").value.trim();
   if(!name){ document.getElementById("newName").focus(); return; }
   const role=document.getElementById("newRole").value;
   const rate=parseFloat(document.getElementById("newRate").value)||0;
   const phone=document.getElementById("newPhone").value.trim();
-  employees.push({ id:nextEid++, name, role, rate, phone, color:COLORS[employees.length%COLORS.length] });
+
+  const employeeCode = generateEmployeeCode(name);
+  const pin = randomDigits(4);
+  const pinHash = await sha256Hex(pin);
+
+  employees.push({
+    id:nextEid++, name, role, rate, phone,
+    employeeCode,
+    pinHash,
+    isActive: true,
+    color:COLORS[employees.length%COLORS.length]
+  });
   document.getElementById("newName").value="";
   document.getElementById("newRate").value="";
   document.getElementById("newPhone").value="";
   persist(); render();
+  alert(`Employee access created:
+Code: ${employeeCode}
+PIN: ${pin}
+
+Save this now. PIN is shown only once.`);
 }
 function removeEmployee(id){
   if(!confirm("Remove this employee and all their shifts?")) return;
