@@ -734,6 +734,9 @@ async function sendSchedule(){
   const ws=weekStart(weekOff);
   const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
+  const ws=weekStart(weekOff);
+  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
+
   const btn=document.getElementById("sendBtn");
   const originalBtnText=btn.innerHTML;
   btn.disabled=true;
