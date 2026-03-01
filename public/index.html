@@ -369,9 +369,12 @@ function weekStart(off=0) {
   d.setDate(d.getDate()+diff+off*7); d.setHours(0,0,0,0); return d;
 }
 function cleanPhone(p) {
-  // strip spaces/dashes, ensure + prefix for Twilio
-  const digits = p.replace(/[^\d+]/g,"");
-  return digits.startsWith("+") ? digits : "+1"+digits.replace(/\D/g,"");
+  const raw = (p||"").trim();
+  if(!raw) return null;
+  if(raw.startsWith("+")) return /^\+\d{10,15}$/.test(raw) ? raw : null;
+  const digits = raw.replace(/\D/g,"");
+  if(digits.length===10) return `+1${digits}`;
+  return null;
 }
 
 // ── Toast ──
@@ -627,33 +630,56 @@ document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="E
 
 // ── Schedule message builder ──
 function buildScheduleMessage(emp) {
-  const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
-  const opt={month:"short",day:"numeric"};
-  const weekStr=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
+  const ws=weekStart(weekOff);
+  const headerDate=`${DAYS[0]} ${ws.getMonth()+1}/${ws.getDate()}`;
+  const empShifts=shifts
+    .filter(s=>s.empId===emp.id)
+    .sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
 
-  const empShifts=shifts.filter(s=>s.empId===emp.id);
+  const shortTime=(t)=>{
+    const [h,m]=t.split(":").map(Number);
+    const hh=h%12||12;
+    return `${hh}:${String(m).padStart(2,"0")}${h>=12?"p":"a"}`;
+  };
+
   if(!empShifts.length){
-    return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}: You have no shifts scheduled this week.`;
+    return `GCDC Schedule (${headerDate}):\nNo shifts this week.\nReply STOP to opt out.`;
   }
-  const sorted=empShifts.slice().sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
-  const lines=sorted.map(s=>{
-    const note=s.note?` (${s.note})`:"";
-    return `  ${DAY_FULL[s.day]}: ${fmtT(s.start)}–${fmtT(s.end)}${note}`;
-  });
-  const totalH=empShifts.reduce((a,s)=>a+hrs(s),0);
-  return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}:\n${lines.join("\n")}\nTotal: ${totalH.toFixed(1)} hrs. Reply STOP to unsubscribe.`;
+
+  const lines=empShifts.map(s=>`${DAYS[s.day]} ${shortTime(s.start)}–${shortTime(s.end)}`);
+  return `GCDC Schedule (${headerDate}):\n${lines.join("\n")}\nReply STOP to opt out.`;
 }
+
+function getPublishRecipients() {
+  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
+  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
+  const recipients=[];
+  const missingPhone=[];
+  const invalidPhone=[];
+
+  scheduledEmps.forEach(emp=>{
+    if(!emp.phone || !emp.phone.trim()) {
+      missingPhone.push(emp);
+      return;
+    }
+    const to = cleanPhone(emp.phone);
+    if(!to){
+      invalidPhone.push(emp);
+      return;
+    }
+    recipients.push({ emp, to, body: buildScheduleMessage(emp) });
+  });
+
+  return { scheduledEmps, recipients, missingPhone, invalidPhone };
+}
+
 
 // ── Publish flow ──
 function openPublishModal(){
   if(!shifts.length){ alert("No shifts scheduled yet."); return; }
 
-  // Figure out who has shifts
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
-  const withPhone=scheduledEmps.filter(e=>e.phone&&e.phone.trim());
-  const noPhone=scheduledEmps.filter(e=>!e.phone||!e.phone.trim());
-  const sampleEmp=withPhone[0]||scheduledEmps[0];
+  const { scheduledEmps, recipients, missingPhone, invalidPhone } = getPublishRecipients();
+  const sampleEmp = recipients[0]?.emp || scheduledEmps[0];
 
   let bodyHTML=`
     <div class="publish-preview">
@@ -663,18 +689,27 @@ function openPublishModal(){
     <div class="publish-recipients">
       <div class="publish-recipients-label">Recipients (${scheduledEmps.length} scheduled this week)</div>
       ${scheduledEmps.map(e=>{
-        const has=!!(e.phone&&e.phone.trim());
+        const formatted = cleanPhone(e.phone||"");
+        const ok = !!formatted;
+        const status = !e.phone||!e.phone.trim() ? "no phone" : ok ? "will receive SMS" : "invalid phone";
         return `<div class="recipient-row">
           <div class="avatar" style="background:${e.color};width:28px;height:28px;font-size:11px;flex-shrink:0">${ini(e.name)}</div>
           <div class="recipient-name">${e.name}</div>
-          <div class="recipient-phone">${has?e.phone:"—"}</div>
-          <span class="recipient-badge ${has?"badge-ok":"badge-warn"}">${has?"will receive SMS":"no phone"}</span>
+          <div class="recipient-phone">${e.phone||"—"}</div>
+          <span class="recipient-badge ${ok?"badge-ok":"badge-warn"}">${status}</span>
         </div>`;
       }).join("")}
     </div>`;
 
-  if(noPhone.length>0){
-    bodyHTML=`<div class="publish-warning">⚠ ${noPhone.length} employee${noPhone.length>1?"s":""} (${noPhone.map(e=>e.name.split(" ")[0]).join(", ")}) ${noPhone.length>1?"have":"has"} no phone number and won't receive a text. Add numbers in Manage Staff.</div>`+bodyHTML;
+  if(missingPhone.length || invalidPhone.length){
+    const warnings=[];
+    if(missingPhone.length){
+      warnings.push(`${missingPhone.length} missing phone`);
+    }
+    if(invalidPhone.length){
+      warnings.push(`${invalidPhone.length} invalid phone format`);
+    }
+    bodyHTML=`<div class="publish-warning">⚠ ${warnings.join(" · ")} — these employees will be skipped.</div>`+bodyHTML;
   }
 
   document.getElementById("publishModalTitle").textContent="Publish Schedule";
@@ -683,28 +718,27 @@ function openPublishModal(){
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Cancel</button>
     <button class="btn" style="background:var(--green);color:#fff;border-color:var(--green)"
       onclick="sendSchedule()" id="sendBtn"
-      ${withPhone.length===0?"disabled":""}>
-      Send ${withPhone.length} Text${withPhone.length!==1?"s":""}
+      ${recipients.length===0?"disabled":""}>
+      Send ${recipients.length} Text${recipients.length!==1?"s":""}
     </button>`;
 
   document.getElementById("publishModal").classList.add("open");
 }
 
-async function sendSchedule(){
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const recipients=employees.filter(e=>scheduledEmpIds.includes(e.id)&&e.phone&&e.phone.trim());
-  if(!recipients.length){ alert("No recipients with phone numbers."); return; }
 
-  const messages=recipients.map(emp=>({
-    to: cleanPhone(emp.phone),
-    body: buildScheduleMessage(emp),
-    name: emp.name,
-  }));
+async function sendSchedule(){
+  const { recipients } = getPublishRecipients();
+  if(!recipients.length){ alert("No valid recipients with shifts this week."); return; }
+
+  const messages=recipients.map(({emp,to,body})=>({ to, body, name: emp.name }));
+  const ws=weekStart(weekOff);
+  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
   const ws=weekStart(weekOff);
   const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
   const btn=document.getElementById("sendBtn");
+  const originalBtnText=btn.innerHTML;
   btn.disabled=true;
   btn.innerHTML=`<span class="spinner"></span> Sending…`;
 
@@ -722,32 +756,47 @@ async function sendSchedule(){
     showPublishResults(results, data.sent, data.failed);
   } catch(err){
     showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"failed", reason: err.message })));
+  } finally {
+    if(document.getElementById("sendBtn")){
+      btn.disabled=false;
+      btn.innerHTML=originalBtnText;
+    }
   }
 }
+
 
 function showPublishResults(results, sentCountOverride, failedCountOverride){
   const sentCount = Number.isInteger(sentCountOverride) ? sentCountOverride : results.filter(r=>r.status==="sent").length;
   const failedCount = Number.isInteger(failedCountOverride) ? failedCountOverride : results.filter(r=>r.status!=="sent").length;
   const allOk=failedCount===0;
+  const failureItems = results.filter(r=>r.status!=="sent");
+
   document.getElementById("publishModalTitle").textContent= allOk ? "✓ Schedule Sent!" : "Send Results";
   document.getElementById("publishModalBody").innerHTML=`
     <div class="publish-recipients" style="padding-top:16px">
-      <div class="publish-recipients-label">Results</div>
+      <div class="publish-recipients-label">Sent ${sentCount} / Failed ${failedCount}</div>
       ${results.map(r=>`
         <div class="result-item">
           <div class="result-name">${r.name}</div>
           <div class="result-detail">${r.to||""}</div>
-          <span class="recipient-badge ${r.status==="sent"?"badge-sent":r.status==="demo"?"badge-ok":"badge-fail"}">
-            ${r.status==="sent"?"✓ sent":r.status==="demo"?"demo":r.status==="skipped"?"skipped":"✗ failed"}
+          <span class="recipient-badge ${r.status==="sent"?"badge-sent":"badge-fail"}">
+            ${r.status==="sent"?"✓ sent":"✗ failed"}
           </span>
         </div>
-        ${r.reason?`<div style="padding:2px 0 6px 2px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">${escHtml(r.reason)}</div>`:""}
       `).join("")}
+      ${failureItems.length?`
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text-muted)">Failure details (${failureItems.length})</summary>
+          <div style="margin-top:8px">
+            ${failureItems.map(r=>`<div style="padding:4px 0;font-size:12px;color:var(--text-muted)"><strong style="color:var(--text)">${r.name}</strong>: ${escHtml(r.reason||"Unknown error")}</div>`).join("")}
+          </div>
+        </details>`:""}
     </div>`;
   document.getElementById("publishModalFooter").innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Close</button>`;
-  flash(`📤 Sent ${sentCount}, failed ${failedCount}`);
+  flash(`Sent ${sentCount} / Failed ${failedCount}`);
 }
+
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
