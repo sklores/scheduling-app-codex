@@ -384,8 +384,8 @@ const TIME_STEP_MINUTES = 30;
 const PERF_INIT_LOGS = true;
 const USE_UNIFIED_GRID = false;
 
-let supabase = null;
 let appBooted = false;
+let supabase = null;
 
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
@@ -402,28 +402,18 @@ function showAppShell() {
   }
 }
 
-function showFatalBootError(err) {
+function showFatal(err) {
   const message = err && err.message ? err.message : String(err || "Unknown error");
+  const stack = err && err.stack ? err.stack : "No stack available.";
   document.body.innerHTML = `
     <div style="position:fixed;inset:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--sans)">
-      <div style="max-width:720px;width:100%;background:#1c1c1c;border:1px solid #333;border-radius:8px;padding:20px">
-        <h1 style="font-family:var(--mono);font-size:16px;margin-bottom:10px">App failed to load</h1>
-        <p style="color:#ddd;margin-bottom:12px;line-height:1.5">${escHtml(message)}</p>
-        <p style="color:#aaa;line-height:1.5">Check Vercel environment variables for <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>, then redeploy.</p>
+      <div style="max-width:760px;width:100%;background:#1c1c1c;border:1px solid #333;border-radius:8px;padding:20px">
+        <h1 style="font-family:var(--mono);font-size:18px;margin-bottom:10px">Boot error</h1>
+        <p style="color:#ddd;margin-bottom:10px;line-height:1.5">${escHtml(message)}</p>
+        <pre style="white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;background:#141414;border:1px solid #2b2b2b;border-radius:4px;padding:10px;color:#c9c9c9;margin-bottom:12px">${escHtml(stack)}</pre>
+        <p style="color:#aaa;line-height:1.5">GET /api/supabase-config is working, so this is a frontend boot crash.</p>
       </div>
     </div>`;
-}
-
-async function loadSupabaseClient() {
-  const response = await fetch("/api/supabase-config", { cache: "no-store" });
-  const cfg = await response.json();
-  if (!response.ok) {
-    throw new Error(cfg.error || `Failed to load Supabase config (${response.status})`);
-  }
-  if (!cfg.url || !cfg.anonKey) {
-    throw new Error("Supabase config is incomplete.");
-  }
-  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
 }
 
 async function initAuthGate() {
@@ -453,16 +443,6 @@ async function initAuthGate() {
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session) showAppShell();
   });
-}
-
-async function bootApp() {
-  try {
-    await loadSupabaseClient();
-    await initAuthGate();
-  } catch (err) {
-    console.error("Failed to boot app", err);
-    showFatalBootError(err);
-  }
 }
 
 window.__SAFE_MODE = false;
@@ -1231,7 +1211,29 @@ function bootInitialRender() {
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-bootApp();
+(async function boot(){
+  const response = await fetch("/api/supabase-config", { cache: "no-store" });
+  let cfg = null;
+  try {
+    cfg = await response.json();
+  } catch (_e) {
+    cfg = null;
+  }
+
+  if (!response.ok) {
+    const errMsg = (cfg && cfg.error) || `Failed to load /api/supabase-config (${response.status})`;
+    throw new Error(errMsg);
+  }
+  if (!cfg || !cfg.url || !cfg.anonKey) {
+    throw new Error("Supabase config is missing url or anonKey.");
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    throw new Error("Supabase CDN failed to load createClient.");
+  }
+
+  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
+  await initAuthGate();
+})().catch(showFatal);
 </script>
 </body>
 </html>
