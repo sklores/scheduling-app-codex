@@ -64,8 +64,10 @@ Set these in **Vercel Project → Settings → Environment Variables**:
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_FROM_NUMBER`
+- `EMPLOYEE_PORTAL_SECRET` (required for `/employee.html` login token signing)
 
 The frontend calls `/api/send-schedule`, and Twilio credentials are only read inside the serverless function (`api/send-schedule.js`).
+Employee portal URL: `/employee.html`.
 
 
 ## Employee Portal (4-digit code)

@@ -461,6 +461,56 @@ function parseAuthCallbackState() {
   };
 }
 
+async function ensureManagerProfileAndRole() {
+  const { data: userData, error: userError } = await window._supabaseClient.auth.getUser();
+  if (userError || !userData || !userData.user) {
+    throw new Error(userError?.message || "Unable to load authenticated user profile.");
+  }
+
+  const user = userData.user;
+  const { data: existingProfile, error: existingProfileError, status } = await window._supabaseClient
+    .from("profiles")
+    .select("id, role, org_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existingProfileError && status !== 406) {
+    throw new Error(existingProfileError.message || "Unable to load manager profile.");
+  }
+
+  let profile = existingProfile;
+  if (!profile) {
+    const { data: newOrg, error: newOrgError } = await window._supabaseClient
+      .from("organizations")
+      .insert({ name: "Default Restaurant" })
+      .select("id")
+      .single();
+
+    if (newOrgError || !newOrg?.id) {
+      throw new Error(newOrgError?.message || "Unable to create default organization.");
+    }
+
+    const { data: newProfile, error: newProfileError } = await window._supabaseClient
+      .from("profiles")
+      .insert({ id: user.id, email: user.email || null, role: "admin", org_id: newOrg.id })
+      .select("id, role, org_id")
+      .single();
+
+    if (newProfileError || !newProfile) {
+      throw new Error(newProfileError?.message || "Unable to create default manager profile.");
+    }
+
+    profile = newProfile;
+  }
+
+  if (profile.role === "employee") {
+    window.location.href = "/employee.html";
+    return { redirected: true };
+  }
+
+  return profile;
+}
+
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
   document.getElementById("appShell").style.display = "none";
@@ -559,11 +609,17 @@ async function initAuthGate(defaultLoginMessage = "") {
   });
 
   const { data } = await window._supabaseClient.auth.getSession();
-  if (data && data.session) showAppShell();
-  else showLoginGate(defaultLoginMessage);
+  if (data && data.session) {
+    const roleCheck = await ensureManagerProfileAndRole();
+    if (!roleCheck?.redirected) showAppShell();
+  } else {
+    showLoginGate(defaultLoginMessage);
+  }
 
-  window._supabaseClient.auth.onAuthStateChange((_event, session) => {
-    if (session) showAppShell();
+  window._supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (!session) return;
+    const roleCheck = await ensureManagerProfileAndRole();
+    if (!roleCheck?.redirected) showAppShell();
   });
 }
 
