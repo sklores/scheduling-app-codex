@@ -13,7 +13,7 @@
     --accent: #c84b2f; --accent-light: #fde8e3;
     --green: #2d5a27; --green-light: #e8f5e3;
     --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
-    --rowH: 72px; --headH: 58px; --staffColW: 200px;
+    --rowH: 84px; --headH: 64px; --staffColW: 200px;
   }
   body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
@@ -73,12 +73,13 @@
   .day-date { font-size: 18px; font-weight: 600; line-height: 1.2; }
   .day-header.today .day-date { color: var(--accent); }
   .day-total { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: var(--rowH); padding: 6px; background: var(--surface); transition: background 0.1s; box-sizing: border-box; }
+  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); height: var(--rowH); padding: 6px; background: var(--surface); transition: background 0.1s; box-sizing: border-box; overflow: hidden; }
   .grid-cell:last-child { border-right: none; }
   .grid-cell:hover { background: #fafaf8; }
   .grid-cell.alt { background: #faf9f6; }
   .grid-cell.alt:hover { background: #f3f1ec; }
-  .shift-block { background: #1a1916; color: #fff; border-radius: 3px; padding: 5px 8px; font-size: 12px; cursor: pointer; position: relative; margin-bottom: 3px; transition: opacity 0.15s; }
+  .shift-stack { display: flex; flex-direction: column; gap: 6px; max-height: calc(var(--rowH) - 24px); overflow: auto; padding-right: 2px; }
+  .shift-block { background: #1a1916; color: #fff; border-radius: 3px; padding: 5px 8px; font-size: 12px; cursor: pointer; position: relative; transition: opacity 0.15s; min-height: 30px; }
   .shift-block:hover { opacity: 0.85; }
   .shift-block .shift-time { font-family: var(--mono); font-size: 10px; color: #aaa; }
   .shift-block .del-btn { position: absolute; top: 3px; right: 5px; background: none; border: none; color: #666; cursor: pointer; font-size: 12px; opacity: 0; transition: opacity 0.1s; padding: 0; line-height: 1; }
@@ -323,7 +324,7 @@ const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const TIME_STEP_MINUTES = 30;
 const PERF_INIT_LOGS = true;
-const USE_UNIFIED_GRID = true;
+const USE_UNIFIED_GRID = false;
 
 window.__SAFE_MODE = false;
 window.__firstInteractive = false;
@@ -626,12 +627,14 @@ function renderGrid() {
       for(let d=0;d<7;d++){
         const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
         html+=`<div class="grid-cell${ri%2?" alt":""}" ondblclick="openAddShift(${emp.id},${d})">
+          <div class="shift-stack">
           ${cs.map(s=>`
             <div class="shift-block" data-role="${emp.role}" onclick="openEditShift(${s.id})">
               <button class="del-btn" onclick="event.stopPropagation();deleteShift(${s.id})">×</button>
               <div>${s.note||emp.name.split(" ")[0]}</div>
               <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
             </div>`).join("")}
+          </div>
           <button class="add-shift-btn" onclick="openAddShift(${emp.id},${d})">+</button>
         </div>`;
       }
