@@ -385,7 +385,7 @@ const PERF_INIT_LOGS = true;
 const USE_UNIFIED_GRID = false;
 
 let appBooted = false;
-let supabase = null;
+window._supabaseClient = null;
 
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
@@ -419,7 +419,7 @@ function showFatal(err) {
 async function initAuthGate() {
   document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    await supabase.auth.signOut();
+    await window._supabaseClient.auth.signOut();
     window.location.reload();
   });
 
@@ -429,18 +429,18 @@ async function initAuthGate() {
       showLoginGate("Enter an email address.");
       return;
     }
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await window._supabaseClient.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
     });
     showLoginGate(error ? error.message : "Check your email.");
   });
 
-  const { data } = await supabase.auth.getSession();
+  const { data } = await window._supabaseClient.auth.getSession();
   if (data && data.session) showAppShell();
   else showLoginGate();
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  window._supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (session) showAppShell();
   });
 }
@@ -1231,7 +1231,7 @@ function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
     throw new Error("Supabase CDN failed to load createClient.");
   }
 
-  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
+  window._supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
   await initAuthGate();
 })().catch(showFatal);
 </script>
