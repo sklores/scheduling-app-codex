@@ -468,14 +468,27 @@ async function ensureManagerProfileAndRole() {
   }
 
   const user = userData.user;
-  const { data: existingProfile, error: existingProfileError, status } = await window._supabaseClient
+  const authUid = user.id;
+
+  let existingProfile = null;
+  let existingProfileError = null;
+  let status = null;
+
+  const profileRes = await window._supabaseClient
     .from("profiles")
-    .select("id, role, org_id")
-    .eq("id", user.id)
+    .select("user_id, org_id, role, display_name")
+    .eq("user_id", authUid)
     .maybeSingle();
 
+  existingProfile = profileRes.data;
+  existingProfileError = profileRes.error;
+  status = profileRes.status;
+
   if (existingProfileError && status !== 406) {
-    throw new Error(existingProfileError.message || "Unable to load manager profile.");
+    // Defensive fallback so old schema mismatches don't hard-crash boot.
+    console.warn("[auth] profile lookup warning", existingProfileError.message || existingProfileError);
+    existingProfile = null;
+    existingProfileError = null;
   }
 
   let profile = existingProfile;
@@ -492,8 +505,8 @@ async function ensureManagerProfileAndRole() {
 
     const { data: newProfile, error: newProfileError } = await window._supabaseClient
       .from("profiles")
-      .insert({ id: user.id, email: user.email || null, role: "admin", org_id: newOrg.id })
-      .select("id, role, org_id")
+      .insert({ user_id: authUid, org_id: newOrg.id, role: "admin", display_name: user.email || null })
+      .select("user_id, org_id, role, display_name")
       .single();
 
     if (newProfileError || !newProfile) {
