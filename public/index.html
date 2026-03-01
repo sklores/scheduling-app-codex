@@ -60,7 +60,7 @@
   /* ── Grid ── */
   .grid-wrap { flex: 1; overflow: auto; }
   .schedule-grid { min-width: 700px; display: grid; grid-template-columns: repeat(7, 1fr); }
-  .day-header { padding: 8px 10px; text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .day-header { padding: 8px 10px; height: var(--headH); text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; box-sizing: border-box; }
   .day-header:last-child { border-right: none; }
   .day-name { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
   .day-date { font-size: 18px; font-weight: 600; line-height: 1.2; }
@@ -528,6 +528,7 @@ function renderSidebar() {
         </div>`;
       }).join("");
   perfLog("renderSidebar", t0);
+  if (!window.__SAFE_MODE) syncLayoutHeights();
 }
 
 function renderGrid() {
@@ -565,6 +566,7 @@ function renderGrid() {
   }
   document.getElementById("scheduleGrid").innerHTML=html;
   perfLog("renderGrid", t0);
+  if (!window.__SAFE_MODE) syncLayoutHeights();
 }
 
 function renderDrawer() {
@@ -900,7 +902,6 @@ function bootInitialRender() {
   const watchdog = setTimeout(() => {
     if (!window.__firstInteractive) {
       window.__SAFE_MODE = true;
-      window.__LAYOUT_SYNC_DISABLED = true;
       console.warn("[perf] Safe Mode enabled after startup watchdog timeout");
       logPerfSummaryIfSlow();
     }
@@ -928,7 +929,7 @@ function bootInitialRender() {
 
       requestAnimationFrame(() => {
         renderDrawer();
-        if (!window.__SAFE_MODE && !window.__LAYOUT_SYNC_DISABLED) syncLayoutHeights();
+        if (!window.__SAFE_MODE) syncLayoutHeights();
         clearTimeout(watchdog);
         warnSlowPhase("bootTotal", bootStart);
         logPerfSummaryIfSlow();
