@@ -316,6 +316,13 @@ const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const TIME_STEP_MINUTES = 30;
+const PERF_INIT_LOGS = true;
+
+function perfLog(label, startedAt) {
+  if (!PERF_INIT_LOGS) return;
+  const ms = (performance.now() - startedAt).toFixed(2);
+  console.log(`[perf] ${label}: ${ms}ms`);
+}
 
 // ── Persist ──
 function loadData() {
@@ -354,7 +361,9 @@ function seed() {
 }
 
 let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
-loadData();
+let lastHeadH = 0;
+let lastRowH = 0;
+let fontsSyncDone = false;
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
@@ -385,22 +394,29 @@ function flash(msg="✓ Saved") {
 
 // ── Render ──
 function syncLayoutHeights() {
+  const t0 = performance.now();
   const root = document.documentElement;
   const headerCell = document.querySelector("#scheduleGrid .day-header");
   const firstGridCell = document.querySelector("#scheduleGrid .grid-cell");
 
-  if (headerCell) {
-    const headH = headerCell.getBoundingClientRect().height;
-    if (headH > 0) root.style.setProperty("--headH", `${headH}px`);
+  // Batch reads first
+  const headH = headerCell ? Math.round(headerCell.getBoundingClientRect().height * 100) / 100 : 0;
+  const rowH = firstGridCell ? Math.round(firstGridCell.getBoundingClientRect().height * 100) / 100 : 0;
+
+  // Then writes only if changed
+  if (headH > 0 && headH !== lastHeadH) {
+    root.style.setProperty("--headH", `${headH}px`);
+    lastHeadH = headH;
+  }
+  if (rowH > 0 && rowH !== lastRowH) {
+    root.style.setProperty("--rowH", `${rowH}px`);
+    lastRowH = rowH;
   }
 
-  if (firstGridCell) {
-    const rowH = firstGridCell.getBoundingClientRect().height;
-    if (rowH > 0) root.style.setProperty("--rowH", `${rowH}px`);
-  }
+  perfLog("syncLayoutHeights", t0);
 }
 
-function render() {
+function updateWeekStats() {
   const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
   const opt={month:"short",day:"numeric"};
   document.getElementById("weekLabel").textContent=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
@@ -409,11 +425,18 @@ function render() {
   document.getElementById("statHours").textContent=totalH.toFixed(1)+"h";
   document.getElementById("statShifts").textContent=shifts.length;
   document.getElementById("statCost").textContent=fmtD(totalC);
-  renderSidebar(); renderGrid(); renderDrawer();
+}
+
+function render() {
+  updateWeekStats();
+  renderSidebar();
+  renderGrid();
+  renderDrawer();
   syncLayoutHeights();
 }
 
 function renderSidebar() {
+  const t0 = performance.now();
   document.getElementById("sidebarList").innerHTML = employees.length===0
     ? `<div class="empty-state">No staff yet.<br>Open Manage Staff →</div>`
     : employees.map(e=>{
@@ -430,10 +453,11 @@ function renderSidebar() {
           </div>
         </div>`;
       }).join("");
-  syncLayoutHeights();
+  perfLog("renderSidebar", t0);
 }
 
 function renderGrid() {
+  const t0 = performance.now();
   const ws=weekStart(weekOff);
   const today=new Date(); today.setHours(0,0,0,0);
   let html=DAYS.map((d,i)=>{
@@ -466,7 +490,7 @@ function renderGrid() {
     });
   }
   document.getElementById("scheduleGrid").innerHTML=html;
-  syncLayoutHeights();
+  perfLog("renderGrid", t0);
 }
 
 function renderDrawer() {
@@ -734,9 +758,6 @@ async function sendSchedule(){
   const ws=weekStart(weekOff);
   const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
-  const ws=weekStart(weekOff);
-  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
-
   const btn=document.getElementById("sendBtn");
   const originalBtnText=btn.innerHTML;
   btn.disabled=true;
@@ -798,19 +819,41 @@ function showPublishResults(results, sentCountOverride, failedCountOverride){
 }
 
 
+function bootInitialRender() {
+  const loadStart = performance.now();
+  loadData();
+  perfLog("loadData/localStorage", loadStart);
+
+  updateWeekStats();
+
+  requestAnimationFrame(() => {
+    renderSidebar();
+    requestAnimationFrame(() => {
+      renderGrid();
+      requestAnimationFrame(() => {
+        renderDrawer();
+        syncLayoutHeights();
+      });
+    });
+  });
+}
+
+
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 let syncLayoutResizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(syncLayoutResizeTimer);
-  syncLayoutResizeTimer = setTimeout(syncLayoutHeights, 120);
+  syncLayoutResizeTimer = setTimeout(syncLayoutHeights, 180);
 });
 
 document.fonts?.ready.then(() => {
-  syncLayoutHeights();
+  if (fontsSyncDone) return;
+  fontsSyncDone = true;
+  requestAnimationFrame(syncLayoutHeights);
 });
 
-render();
+bootInitialRender();
 </script>
 </body>
 </html>
