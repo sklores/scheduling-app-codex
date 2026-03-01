@@ -199,6 +199,17 @@
 </style>
 </head>
 <body>
+<div id="loginGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1200;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px">
+    <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:8px">Sign in</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Use your email to receive a magic link.</div>
+    <div class="form-group" style="margin-bottom:10px"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com"></div>
+    <button class="btn btn-primary" id="sendMagicLinkBtn" style="width:100%">Send magic link</button>
+    <div id="loginMsg" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+  </div>
+</div>
+
+<div id="appShell" style="display:none">
 <header>
   <div class="logo">sh<span>i</span>ft</div>
   <div class="week-nav">
@@ -213,6 +224,7 @@
     <button class="publish-btn" id="publishBtn" onclick="openPublishModal()">
       <span class="send-icon">📤</span> Publish Schedule
     </button>
+    <a href="#" id="signOutLink" style="color:#ccc;font-family:var(--mono);font-size:12px;text-decoration:none">Sign Out</a>
   </div>
 </header>
 
@@ -359,7 +371,11 @@
 </div>
 
 <div class="toast" id="toast">✓ Saved</div>
+</div>
 
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
@@ -367,6 +383,67 @@ const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 const TIME_STEP_MINUTES = 30;
 const PERF_INIT_LOGS = true;
 const USE_UNIFIED_GRID = false;
+
+function readImportMetaEnv(key) {
+  try { return (0, eval)(`import.meta?.env?.${key}`); }
+  catch (_) { return undefined; }
+}
+
+const SUPABASE_URL = readImportMetaEnv("SUPABASE_URL") || (window.process && window.process.env && window.process.env.SUPABASE_URL) || window.__SUPABASE_URL__ || "";
+const SUPABASE_ANON_KEY = readImportMetaEnv("SUPABASE_ANON_KEY") || (window.process && window.process.env && window.process.env.SUPABASE_ANON_KEY) || window.__SUPABASE_ANON_KEY__ || "";
+const supabase = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+let appBooted = false;
+
+function showLoginGate(msg="") {
+  document.getElementById("loginGate").style.display = "flex";
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("loginMsg").textContent = msg;
+}
+
+function showAppShell() {
+  document.getElementById("loginGate").style.display = "none";
+  document.getElementById("appShell").style.display = "block";
+  if (!appBooted) {
+    appBooted = true;
+    bootInitialRender();
+  }
+}
+
+async function initAuthGate() {
+  if (!supabase) {
+    showAppShell();
+    return;
+  }
+
+  document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await supabase.auth.signOut();
+    showLoginGate("Signed out.");
+  });
+
+  document.getElementById("sendMagicLinkBtn")?.addEventListener("click", async () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    if (!email) {
+      showLoginGate("Enter an email address.");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+    });
+    showLoginGate(error ? error.message : "Check your email.");
+  });
+
+  const { data } = await supabase.auth.getSession();
+  if (data && data.session) showAppShell();
+  else showLoginGate();
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) showAppShell();
+  });
+}
 
 window.__SAFE_MODE = false;
 window.__firstInteractive = false;
@@ -1134,7 +1211,7 @@ function bootInitialRender() {
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-bootInitialRender();
+initAuthGate();
 </script>
 </body>
 </html>
