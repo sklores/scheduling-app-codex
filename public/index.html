@@ -219,6 +219,8 @@
 <div class="toolbar">
   <button class="btn btn-primary" onclick="openAddShift(null,null)">+ Add Shift</button>
   <button class="btn btn-ghost" onclick="clearWeek()">Clear Week</button>
+  <button class="btn btn-ghost" onclick="openSaveTemplateModal()">Save as Template</button>
+  <button class="btn btn-ghost" onclick="openApplyTemplateModal()">Apply Template</button>
   <div class="stat-pill">
     <div class="stat"><div class="stat-num" id="statCost">$0</div><div class="stat-label">Labor Cost</div></div>
     <div class="stat"><div class="stat-num" id="statHours">0h</div><div class="stat-label">Hours</div></div>
@@ -264,6 +266,10 @@
         <div class="form-group" style="flex:1"><label>Phone Number</label><input type="tel" id="newPhone" placeholder="+1 555 000 0000"></div>
         <button class="btn btn-primary" onclick="addEmployee()" style="flex-shrink:0;align-self:flex-end">Add</button>
       </div>
+    </div>
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);background:#faf9f6">
+      <h3 style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px">Templates</h3>
+      <div id="templateList"></div>
     </div>
     <div id="staffList"></div>
   </div>
@@ -313,6 +319,42 @@
     </div>
     <div id="publishModalBody"></div>
     <div class="modal-footer" id="publishModalFooter"></div>
+  </div>
+</div>
+
+
+<!-- Save Template Modal -->
+<div class="modal-overlay" id="saveTemplateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h2>Save Template</h2>
+      <button class="modal-close" onclick="closeModal('saveTemplateModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Template Name</label><input type="text" id="templateNameInput" placeholder="Standard Week"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('saveTemplateModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTemplateFromCurrentWeek()">Save Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- Apply Template Modal -->
+<div class="modal-overlay" id="applyTemplateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h2>Apply Template</h2>
+      <button class="modal-close" onclick="closeModal('applyTemplateModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Template</label><select id="applyTemplateSelect"></select></div>
+      <div id="applyTemplateInfo" style="font-size:12px;color:var(--text-muted)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('applyTemplateModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="applySelectedTemplate()">Apply</button>
+    </div>
   </div>
 </div>
 
@@ -408,7 +450,8 @@ function loadData() {
     }
     employees = JSON.parse(localStorage.getItem("sh_emp"))    || seed().employees;
     shifts    = JSON.parse(localStorage.getItem("sh_shifts")) || seed().shifts;
-  } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; }
+    templates = JSON.parse(localStorage.getItem("scheduleTemplates")) || [];
+  } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; templates=[]; }
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
   window.__BOOT_EMP_COUNT = employees.length;
@@ -418,6 +461,7 @@ function loadData() {
 function persist() {
   localStorage.setItem("sh_emp",    JSON.stringify(employees));
   localStorage.setItem("sh_shifts", JSON.stringify(shifts));
+  localStorage.setItem("scheduleTemplates", JSON.stringify(templates));
   flash("✓ Saved");
 }
 function seed() {
@@ -438,7 +482,7 @@ function seed() {
   };
 }
 
-let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
+let employees=[], shifts=[], templates=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
@@ -650,6 +694,18 @@ function renderDrawer() {
   document.getElementById("drawerHours").textContent=totalH.toFixed(1)+"h";
   document.getElementById("drawerCost").textContent=fmtD(totalC);
   document.getElementById("drawerCount").textContent=employees.length;
+  document.getElementById("templateList").innerHTML = templates.length===0
+    ? `<div class="empty-state" style="padding:8px 0">No templates yet.</div>`
+    : templates.map(t=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Updated ${new Date(t.updatedAt).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:4px 8px" onclick="renameTemplate('${t.id}')">Rename</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;color:var(--accent)" onclick="deleteTemplate('${t.id}')">Delete</button>
+      </div>
+    `).join("");
   document.getElementById("staffList").innerHTML = employees.length===0
     ? `<div class="empty-state">No employees yet.<br>Add one above.</div>`
     : employees.map(e=>{
@@ -797,10 +853,87 @@ function saveShift(){
 function deleteShift(id){ shifts=shifts.filter(s=>s.id!==id); persist(); render(); }
 function clearWeek(){ if(!shifts.length||!confirm("Clear all shifts?")) return; shifts=[]; persist(); render(); }
 
+// ── Templates ──
+function currentWeekStartISO(){
+  const ws=weekStart(weekOff);
+  return `${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
+}
+
+function openSaveTemplateModal(){
+  document.getElementById("templateNameInput").value="";
+  document.getElementById("saveTemplateModal").classList.add("open");
+}
+
+function saveTemplateFromCurrentWeek(){
+  const name=document.getElementById("templateNameInput").value.trim();
+  if(!name){ alert("Template name required."); return; }
+  const now=Date.now();
+  const items=shifts.map(s=>({
+    employeeId:String(s.empId), dayIndex:s.day, startTime:s.start, endTime:s.end, notes:s.note||""
+  }));
+  let tpl=templates.find(t=>t.name.toLowerCase()===name.toLowerCase());
+  if(tpl){
+    tpl.items=items; tpl.updatedAt=now; tpl.sourceWeekStart=currentWeekStartISO();
+  } else {
+    tpl={ id:`tpl_${now}_${Math.random().toString(36).slice(2,7)}`, name, createdAt:now, updatedAt:now, sourceWeekStart:currentWeekStartISO(), items };
+    templates.push(tpl);
+  }
+  persist(); renderDrawer(); closeModal("saveTemplateModal");
+  flash(`Template saved: ${tpl.name}`);
+}
+
+function openApplyTemplateModal(){
+  const sel=document.getElementById("applyTemplateSelect");
+  sel.innerHTML=templates.length
+    ? templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")
+    : `<option value="">No templates available</option>`;
+  document.getElementById("applyTemplateInfo").textContent=templates.length ? "This will add shifts to the current week." : "Save a template first.";
+  document.getElementById("applyTemplateModal").classList.add("open");
+}
+
+function applySelectedTemplate(){
+  const id=document.getElementById("applyTemplateSelect").value;
+  const tpl=templates.find(t=>t.id===id);
+  if(!tpl){ alert("Select a template."); return; }
+  if(!confirm("This will add shifts to this week. Continue?")) return;
+
+  let added=0, dup=0, missing=0;
+  const missingNames=[];
+  tpl.items.forEach(it=>{
+    const empId=parseInt(it.employeeId,10);
+    const emp=employees.find(e=>e.id===empId);
+    if(!emp){ missing++; if(!missingNames.includes(it.employeeId)) missingNames.push(it.employeeId); return; }
+    const exists=shifts.some(s=>s.empId===empId && s.day===it.dayIndex && s.start===it.startTime && s.end===it.endTime);
+    if(exists){ dup++; return; }
+    shifts.push({ id:nextSid++, empId, day:it.dayIndex, start:it.startTime, end:it.endTime, note:it.notes||"" });
+    added++;
+  });
+  persist(); render(); closeModal("applyTemplateModal");
+  const missTxt=missing?`, Skipped ${missing} missing employee`:"";
+  alert(`Applied template: Added ${added}, Skipped ${dup} duplicates${missTxt}`);
+}
+
+function renameTemplate(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  const n=prompt("Rename template", t.name);
+  if(!n || !n.trim()) return;
+  t.name=n.trim(); t.updatedAt=Date.now();
+  persist(); renderDrawer();
+}
+
+function deleteTemplate(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  if(!confirm(`Delete template "${t.name}"?`)) return;
+  templates=templates.filter(x=>x.id!==id);
+  persist(); renderDrawer();
+}
+
 // ── Modals ──
 function closeModal(id){ document.getElementById(id).classList.remove("open"); }
 document.getElementById("shiftModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("shiftModal"); });
 document.getElementById("publishModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("publishModal"); });
+document.getElementById("saveTemplateModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("saveTemplateModal"); });
+document.getElementById("applyTemplateModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("applyTemplateModal"); });
 document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") addEmployee(); });
 
 // ── Schedule message builder ──
