@@ -13,7 +13,7 @@
     --accent: #c84b2f; --accent-light: #fde8e3;
     --green: #2d5a27; --green-light: #e8f5e3;
     --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
-    --rowH: 72px; --headH: 58px;
+    --rowH: 72px; --headH: 58px; --staffColW: 200px;
   }
   body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
@@ -47,6 +47,8 @@
 
   /* ── App Body ── */
   .app-body { display: flex; height: calc(100vh - 52px - 49px); overflow: hidden; }
+  .app-body.unified .sidebar { display: none; }
+  .app-body.unified .grid-wrap { flex: 1; }
   .sidebar { width: 200px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
   .sidebar-header { padding: 10px 14px; height: var(--headH); display: flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); box-sizing: border-box; }
   .employee-row { padding: 10px 14px; height: var(--rowH); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; box-sizing: border-box; }
@@ -60,6 +62,11 @@
   /* ── Grid ── */
   .grid-wrap { flex: 1; overflow: auto; }
   .schedule-grid { min-width: 700px; display: grid; grid-template-columns: repeat(7, 1fr); }
+  .schedule-grid.unified { min-width: 900px; grid-template-columns: var(--staffColW) repeat(7, minmax(120px, 1fr)); grid-template-rows: var(--headH); grid-auto-rows: var(--rowH); }
+  .ug-head { height: var(--headH); }
+  .ug-staff-head { position: sticky; left: 0; z-index: 11; }
+  .ug-staff-cell { position: sticky; left: 0; z-index: 9; background: var(--surface); }
+  .ug-day-cell { min-height: var(--rowH); }
   .day-header { padding: 8px 10px; height: var(--headH); text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; box-sizing: border-box; }
   .day-header:last-child { border-right: none; }
   .day-name { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
@@ -316,6 +323,7 @@ const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const TIME_STEP_MINUTES = 30;
 const PERF_INIT_LOGS = true;
+const USE_UNIFIED_GRID = true;
 
 window.__SAFE_MODE = false;
 window.__firstInteractive = false;
@@ -430,9 +438,6 @@ function seed() {
 }
 
 let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
-let lastHeadH = 0;
-let lastRowH = 0;
-let fontsSyncDone = false;
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
@@ -462,33 +467,8 @@ function flash(msg="✓ Saved") {
 }
 
 // ── Render ──
-function syncLayoutHeights() {
-  if (window.__SAFE_MODE || window.__syncInProgress) return;
-  window.__syncInProgress = true;
-  const t0 = performance.now();
+function syncLayoutHeights() {}
 
-  const root = document.documentElement;
-  const headerCell = document.querySelector("#scheduleGrid .day-header");
-  const firstGridCell = document.querySelector("#scheduleGrid .grid-cell");
-
-  // Batch reads first
-  const headH = headerCell ? Math.round(headerCell.getBoundingClientRect().height * 100) / 100 : 0;
-  const rowH = firstGridCell ? Math.round(firstGridCell.getBoundingClientRect().height * 100) / 100 : 0;
-
-  // Then writes only if changed
-  if (headH > 0 && headH !== lastHeadH) {
-    root.style.setProperty("--headH", `${headH}px`);
-    lastHeadH = headH;
-  }
-  if (rowH > 0 && rowH !== lastRowH) {
-    root.style.setProperty("--rowH", `${rowH}px`);
-    lastRowH = rowH;
-  }
-
-  perfLog("syncLayoutHeights", t0);
-  warnSlowPhase("syncLayoutHeights", t0);
-  window.__syncInProgress = false;
-}
 
 function updateWeekStats() {
   const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
@@ -503,11 +483,105 @@ function updateWeekStats() {
 
 function render() {
   updateWeekStats();
-  renderSidebar();
-  renderGrid();
+  document.querySelector(".app-body")?.classList.toggle("unified", USE_UNIFIED_GRID);
+  if (USE_UNIFIED_GRID) {
+    renderUnifiedGrid();
+  } else {
+    renderSidebar();
+    renderGrid();
+  }
   renderDrawer();
-  syncLayoutHeights();
 }
+
+function bindUnifiedGridEvents() {
+  if (bindUnifiedGridEvents._bound) return;
+  bindUnifiedGridEvents._bound = true;
+  const grid = document.getElementById("scheduleGrid");
+
+  grid.addEventListener("click", (e) => {
+    if (!USE_UNIFIED_GRID) return;
+    const actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+    if (action === "add-shift") {
+      openAddShift(parseInt(actionEl.dataset.empId, 10), parseInt(actionEl.dataset.day, 10));
+      return;
+    }
+    if (action === "edit-shift") {
+      openEditShift(parseInt(actionEl.dataset.shiftId, 10));
+      return;
+    }
+    if (action === "delete-shift") {
+      e.stopPropagation();
+      deleteShift(parseInt(actionEl.dataset.shiftId, 10));
+    }
+  });
+
+  grid.addEventListener("dblclick", (e) => {
+    if (!USE_UNIFIED_GRID) return;
+    const dayCell = e.target.closest(".ug-day-cell[data-emp-id][data-day]");
+    if (!dayCell) return;
+    openAddShift(parseInt(dayCell.dataset.empId, 10), parseInt(dayCell.dataset.day, 10));
+  });
+}
+
+function renderUnifiedGrid() {
+  const t0 = performance.now();
+  const grid = document.getElementById("scheduleGrid");
+  const ws=weekStart(weekOff);
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  let html = `<div class="sidebar-header ug-head ug-staff-head">Staff</div>`;
+  html += DAYS.map((d,i)=>{
+    const dd=new Date(ws); dd.setDate(ws.getDate()+i);
+    const isToday=dd.getTime()===today.getTime();
+    const dh=shifts.filter(s=>s.day===i).reduce((a,s)=>a+hrs(s),0);
+    const dc=shifts.filter(s=>s.day===i).reduce((a,s)=>a+cost(s),0);
+    return `<div class="day-header ug-head${isToday?" today":""}">
+      <div class="day-name">${d}</div>
+      <div class="day-date">${dd.getDate()}</div>
+      <div class="day-total">${dh>0?`${dh.toFixed(1)}h · ${fmtD(dc)}`:""}</div>
+    </div>`;
+  }).join("");
+
+  if (!employees.length) {
+    html += `<div class="employee-row ug-staff-cell"><div class="emp-name">No staff</div></div>`;
+    html += `<div class="no-emp-grid" style="grid-column:2/-1">Open "Manage Staff" to add employees,<br>then start scheduling.</div>`;
+  } else {
+    employees.forEach((emp,ri)=>{
+      const h=empHrs(emp.id), c=empCost(emp.id);
+      html += `<div class="employee-row ug-staff-cell">
+          <div class="avatar" style="background:${emp.color}">${ini(emp.name)}</div>
+          <div style="min-width:0;flex:1">
+            <div class="emp-name">${emp.name}</div>
+            <div class="emp-role">${emp.role}</div>
+          </div>
+          <div class="emp-hours">
+            <div>${h>0?h.toFixed(1)+"h":""}</div>
+            <div class="emp-cost">${c>0?fmtD(c):""}</div>
+          </div>
+        </div>`;
+
+      for(let d=0; d<7; d++){
+        const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
+        html += `<div class="grid-cell ug-day-cell${ri%2?" alt":""}" data-emp-id="${emp.id}" data-day="${d}">
+          ${cs.map(s=>`
+            <div class="shift-block" data-role="${emp.role}" data-action="edit-shift" data-shift-id="${s.id}">
+              <button class="del-btn" data-action="delete-shift" data-shift-id="${s.id}">×</button>
+              <div>${s.note||emp.name.split(" ")[0]}</div>
+              <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
+            </div>`).join("")}
+          <button class="add-shift-btn" data-action="add-shift" data-emp-id="${emp.id}" data-day="${d}">+</button>
+        </div>`;
+      }
+    });
+  }
+
+  grid.classList.add("unified");
+  grid.innerHTML = html;
+  perfLog("renderUnifiedGrid", t0);
+}
+
 
 function renderSidebar() {
   const t0 = performance.now();
@@ -528,7 +602,6 @@ function renderSidebar() {
         </div>`;
       }).join("");
   perfLog("renderSidebar", t0);
-  if (!window.__SAFE_MODE) syncLayoutHeights();
 }
 
 function renderGrid() {
@@ -566,7 +639,6 @@ function renderGrid() {
   }
   document.getElementById("scheduleGrid").innerHTML=html;
   perfLog("renderGrid", t0);
-  if (!window.__SAFE_MODE) syncLayoutHeights();
 }
 
 function renderDrawer() {
@@ -912,46 +984,19 @@ function bootInitialRender() {
   perfLog("loadData/localStorage", loadStart);
   warnSlowPhase("parseStorage", loadStart);
 
-  updateWeekStats();
-
   setTimeout(runOverlayBlockerWatchdog, 750);
+  bindUnifiedGridEvents();
 
   requestAnimationFrame(() => {
-    const staffStart = performance.now();
-    renderSidebar();
-    warnSlowPhase("renderStaff", staffStart);
+    render();
     window.__firstInteractive = true;
-
-    requestAnimationFrame(() => {
-      const gridStart = performance.now();
-      renderGrid();
-      warnSlowPhase("renderGrid", gridStart);
-
-      requestAnimationFrame(() => {
-        renderDrawer();
-        if (!window.__SAFE_MODE) syncLayoutHeights();
-        clearTimeout(watchdog);
-        warnSlowPhase("bootTotal", bootStart);
-        logPerfSummaryIfSlow();
-      });
-    });
+    clearTimeout(watchdog);
+    warnSlowPhase("bootTotal", bootStart);
   });
 }
 
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-
-let syncLayoutResizeTimer = null;
-window.addEventListener("resize", () => {
-  clearTimeout(syncLayoutResizeTimer);
-  syncLayoutResizeTimer = setTimeout(() => { if (!window.__SAFE_MODE) syncLayoutHeights(); }, 200);
-});
-
-document.fonts?.ready.then(() => {
-  if (fontsSyncDone) return;
-  fontsSyncDone = true;
-  if (!window.__SAFE_MODE) requestAnimationFrame(syncLayoutHeights);
-});
 
 bootInitialRender();
 </script>
