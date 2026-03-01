@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shift — Employee Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f3ee; --surface: #ffffff; --border: #d9d5cc;
+    --text: #1a1916; --text-muted: #7a7770;
+    --accent: #c84b2f; --accent-light: #fde8e3;
+    --green: #2d5a27; --green-light: #e8f5e3;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* ── Header ── */
+  header { background: var(--text); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: var(--mono); font-size: 18px; font-weight: 600; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .week-nav { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 13px; color: #ccc; }
+  .week-nav button { background: none; border: 1px solid #444; color: #fff; width: 28px; height: 28px; cursor: pointer; font-size: 14px; border-radius: 3px; transition: all 0.15s; }
+  .week-nav button:hover { border-color: #fff; background: #333; }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .staff-btn { font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 3px; cursor: pointer; background: none; border: 1px solid #555; color: #ccc; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .staff-btn:hover { border-color: #fff; color: #fff; }
+  .staff-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .publish-btn { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 3px; cursor: pointer; background: var(--green); border: 1px solid var(--green); color: #fff; transition: all 0.15s; display: flex; align-items: center; gap: 7px; }
+  .publish-btn:hover { background: #224a1e; border-color: #224a1e; }
+  .publish-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .publish-btn .send-icon { font-size: 14px; }
+
+  /* ── Toolbar ── */
+  .toolbar { padding: 10px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .btn { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 3px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: #b03f25; }
+  .btn-ghost { background: none; color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .stat-pill { margin-left: auto; display: flex; gap: 24px; }
+  .stat { text-align: right; }
+  .stat-num { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── App Body ── */
+  .app-body { display: flex; height: calc(100vh - 52px - 49px); overflow: hidden; }
+  .sidebar { width: 200px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
+  .sidebar-header { padding: 10px 14px; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+  .employee-row { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+  .employee-row:hover { background: var(--bg); }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: #fff; }
+  .emp-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .emp-role { font-size: 11px; color: var(--text-muted); }
+  .emp-hours { margin-left: auto; font-family: var(--mono); font-size: 11px; text-align: right; line-height: 1.5; color: var(--text-muted); flex-shrink: 0; }
+  .emp-cost { color: var(--accent); font-weight: 600; }
+
+  /* ── Grid ── */
+  .grid-wrap { flex: 1; overflow: auto; }
+  .schedule-grid { min-width: 700px; display: grid; grid-template-columns: repeat(7, 1fr); }
+  .day-header { padding: 8px 10px; text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .day-header:last-child { border-right: none; }
+  .day-name { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+  .day-date { font-size: 18px; font-weight: 600; line-height: 1.2; }
+  .day-header.today .day-date { color: var(--accent); }
+  .day-total { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 72px; padding: 6px; background: var(--surface); transition: background 0.1s; }
+  .grid-cell:last-child { border-right: none; }
+  .grid-cell:hover { background: #fafaf8; }
+  .grid-cell.alt { background: #faf9f6; }
+  .grid-cell.alt:hover { background: #f3f1ec; }
+  .shift-block { background: #1a1916; color: #fff; border-radius: 3px; padding: 5px 8px; font-size: 12px; cursor: pointer; position: relative; margin-bottom: 3px; transition: opacity 0.15s; }
+  .shift-block:hover { opacity: 0.85; }
+  .shift-block .shift-time { font-family: var(--mono); font-size: 10px; color: #aaa; }
+  .shift-block .del-btn { position: absolute; top: 3px; right: 5px; background: none; border: none; color: #666; cursor: pointer; font-size: 12px; opacity: 0; transition: opacity 0.1s; padding: 0; line-height: 1; }
+  .shift-block:hover .del-btn { opacity: 1; }
+  .shift-block .del-btn:hover { color: var(--accent); }
+  .shift-block[data-role="manager"] { background: #1a3a5c; }
+  .shift-block[data-role="cashier"] { background: #2d5a27; }
+  .shift-block[data-role="cook"]    { background: #5a2d27; }
+  .shift-block[data-role="server"]  { background: #4a3060; }
+  .shift-block[data-role="host"]    { background: #4a4020; }
+  .shift-block[data-role="barista"] { background: #2d4a5a; }
+  .add-shift-btn { display: block; width: 100%; background: none; border: 1px dashed var(--border); color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 3px; font-size: 11px; text-align: center; margin-top: 2px; transition: all 0.15s; }
+  .add-shift-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  /* ── Staff Drawer ── */
+  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
+  .drawer-overlay.open { display: block; }
+  .drawer { position: fixed; top: 0; right: -520px; width: 520px; height: 100vh; background: var(--surface); box-shadow: -8px 0 40px rgba(0,0,0,0.15); z-index: 301; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1); }
+  .drawer.open { right: 0; }
+  .drawer-header { background: var(--text); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .drawer-header h2 { font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .drawer-close { background: none; border: none; color: #aaa; cursor: pointer; font-size: 22px; line-height: 1; }
+  .drawer-close:hover { color: #fff; }
+  .drawer-body { flex: 1; overflow-y: auto; }
+
+  .drawer-add-form { padding: 16px 20px; border-bottom: 2px solid var(--border); background: var(--bg); }
+  .drawer-add-form h3 { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px; }
+  .add-form-grid { display: grid; grid-template-columns: 1fr 100px 70px; gap: 8px; margin-bottom: 8px; }
+  .add-form-bottom { display: flex; gap: 8px; align-items: flex-end; }
+
+  .form-group label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; font-family: var(--mono); }
+  .form-group input, .form-group select { border: 1px solid var(--border); border-radius: 3px; padding: 7px 10px; font-family: var(--sans); font-size: 13px; background: var(--surface); color: var(--text); outline: none; transition: border-color 0.15s; width: 100%; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+
+  /* Staff list */
+  .staff-list { padding: 0; }
+  .staff-item { border-bottom: 1px solid var(--border); padding: 12px 20px; transition: background 0.1s; }
+  .staff-item:hover { background: var(--bg); }
+  .staff-item-top { display: flex; align-items: center; gap: 12px; }
+  .staff-info { flex: 1; min-width: 0; }
+  .staff-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .staff-meta { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .staff-rate-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .rate-input { width: 64px; border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; font-family: var(--mono); font-size: 13px; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
+  .rate-input:focus { border-color: var(--accent); }
+  .rate-sym { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+  .staff-weekly { text-align: right; flex-shrink: 0; min-width: 60px; }
+  .staff-weekly-amt { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--accent); }
+  .staff-weekly-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .staff-remove { background: none; border: none; color: #ccc; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; transition: color 0.15s; flex-shrink: 0; }
+  .staff-remove:hover { color: var(--accent); }
+
+  /* Phone row in drawer */
+  .staff-item-phone { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .phone-icon { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+  .phone-input { flex: 1; border: 1px solid var(--border); border-radius: 3px; padding: 5px 9px; font-family: var(--mono); font-size: 12px; background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s; }
+  .phone-input:focus { border-color: var(--green); }
+  .phone-status { font-size: 11px; font-family: var(--mono); flex-shrink: 0; }
+  .phone-status.has-phone { color: var(--green); }
+  .phone-status.no-phone { color: var(--text-muted); }
+
+  .drawer-footer { border-top: 2px solid var(--border); padding: 16px 20px; display: flex; gap: 28px; background: #faf9f6; flex-shrink: 0; }
+  .drawer-total-num { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .drawer-total-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+
+  /* ── Shift Modal ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 4px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
+  .modal-header { padding: 16px 20px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h2 { font-size: 14px; font-weight: 600; font-family: var(--mono); }
+  .modal-close { background: none; border: none; color: #aaa; cursor: pointer; font-size: 18px; line-height: 1; }
+  .modal-close:hover { color: #fff; }
+  .modal-body { padding: 20px; }
+  .modal-body .form-group { margin-bottom: 14px; }
+  .modal-body .form-group input, .modal-body .form-group select { width: 100%; }
+  .modal-body .form-row { display: flex; gap: 10px; }
+  .modal-body .form-row .form-group { flex: 1; margin-bottom: 0; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── Publish Modal ── */
+  .publish-modal { width: 460px; }
+  .publish-modal .modal-header { background: var(--green); }
+  .publish-preview { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .publish-preview-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+  .publish-preview-msg { font-family: var(--mono); font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; color: var(--text); line-height: 1.6; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
+  .publish-recipients { padding: 16px 20px; }
+  .publish-recipients-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+  .recipient-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .recipient-row:last-child { border-bottom: none; }
+  .recipient-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .recipient-phone { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+  .recipient-badge { font-size: 10px; font-family: var(--mono); padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .badge-ok { background: var(--green-light); color: var(--green); }
+  .badge-warn { background: #fff3e0; color: #b45a00; }
+  .badge-sent { background: var(--green-light); color: var(--green); }
+  .badge-fail { background: var(--accent-light); color: var(--accent); }
+  .publish-warning { margin: 0 20px 16px; padding: 10px 14px; background: #fff3e0; border: 1px solid #f5c97a; border-radius: 4px; font-size: 12px; color: #7a4a00; }
+
+  /* Result modal */
+  .result-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .result-item:last-child { border-bottom: none; }
+  .result-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .result-detail { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+  .api-url-note { margin: 0 20px 16px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--text-muted); font-family: var(--mono); }
+  .api-url-note strong { color: var(--text); }
+
+  .empty-state { padding: 28px 20px; text-align: center; color: var(--text-muted); font-size: 12px; font-family: var(--mono); line-height: 1.8; }
+  .no-emp-grid { grid-column: 1/-1; padding: 60px; text-align: center; color: var(--text-muted); font-family: var(--mono); font-size: 13px; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--green); color: #fff; padding: 8px 20px; border-radius: 20px; font-family: var(--mono); font-size: 12px; opacity: 0; transition: all 0.25s; z-index: 600; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">sh<span>i</span>ft</div>
+  <div class="week-nav">
+    <button onclick="changeWeek(-1)">‹</button>
+    <span id="weekLabel">—</span>
+    <button onclick="changeWeek(1)">›</button>
+  </div>
+  <div class="header-actions">
+    <button class="staff-btn" onclick="openDrawer()">
+      <span class="dot"></span> Manage Staff
+    </button>
+    <button class="publish-btn" id="publishBtn" onclick="openPublishModal()">
+      <span class="send-icon">📤</span> Publish Schedule
+    </button>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="openAddShift(null,null)">+ Add Shift</button>
+  <button class="btn btn-ghost" onclick="clearWeek()">Clear Week</button>
+  <div class="stat-pill">
+    <div class="stat"><div class="stat-num" id="statCost">$0</div><div class="stat-label">Labor Cost</div></div>
+    <div class="stat"><div class="stat-num" id="statHours">0h</div><div class="stat-label">Hours</div></div>
+    <div class="stat"><div class="stat-num" id="statShifts">0</div><div class="stat-label">Shifts</div></div>
+  </div>
+</div>
+
+<div class="app-body">
+  <div class="sidebar">
+    <div class="sidebar-header">Staff</div>
+    <div id="sidebarList"></div>
+  </div>
+  <div class="grid-wrap">
+    <div class="schedule-grid" id="scheduleGrid"></div>
+  </div>
+</div>
+
+<!-- Staff Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="staffDrawer">
+  <div class="drawer-header">
+    <h2>Staff Management</h2>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-add-form">
+      <h3>Add New Employee</h3>
+      <div class="add-form-grid">
+        <div class="form-group"><label>Full Name</label><input type="text" id="newName" placeholder="Jane Smith"></div>
+        <div class="form-group"><label>Role</label>
+          <select id="newRole">
+            <option value="server">Server</option>
+            <option value="cashier">Cashier</option>
+            <option value="cook">Cook</option>
+            <option value="host">Host</option>
+            <option value="barista">Barista</option>
+            <option value="manager">Manager</option>
+          </select>
+        </div>
+        <div class="form-group"><label>$/hr</label><input type="number" id="newRate" placeholder="18" min="0" step="0.5"></div>
+      </div>
+      <div class="add-form-bottom">
+        <div class="form-group" style="flex:1"><label>Phone Number</label><input type="tel" id="newPhone" placeholder="+1 555 000 0000"></div>
+        <button class="btn btn-primary" onclick="addEmployee()" style="flex-shrink:0;align-self:flex-end">Add</button>
+      </div>
+    </div>
+    <div id="staffList"></div>
+  </div>
+  <div class="drawer-footer">
+    <div><div class="drawer-total-num" id="drawerCost">$0</div><div class="drawer-total-label">Weekly Labor Cost</div></div>
+    <div><div class="drawer-total-num" id="drawerHours">0h</div><div class="drawer-total-label">Hours Scheduled</div></div>
+    <div><div class="drawer-total-num" id="drawerCount">0</div><div class="drawer-total-label">Employees</div></div>
+  </div>
+</div>
+
+<!-- Shift Modal -->
+<div class="modal-overlay" id="shiftModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="shiftModalTitle">Add Shift</h2>
+      <button class="modal-close" onclick="closeModal('shiftModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Employee</label><select id="mEmp"></select></div>
+      <div class="form-group"><label>Day</label>
+        <select id="mDay">
+          <option value="0">Monday</option><option value="1">Tuesday</option>
+          <option value="2">Wednesday</option><option value="3">Thursday</option>
+          <option value="4">Friday</option><option value="5">Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start</label><select id="mStart"></select></div>
+        <div class="form-group"><label>End</label><select id="mEnd"></select></div>
+      </div>
+      <div class="form-group"><label>Note (optional)</label><input type="text" id="mNote" placeholder="e.g. opening, closing…"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('shiftModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShift()">Save Shift</button>
+    </div>
+  </div>
+</div>
+
+<!-- Publish Modal -->
+<div class="modal-overlay" id="publishModal">
+  <div class="modal publish-modal">
+    <div class="modal-header">
+      <h2 id="publishModalTitle">Publish Schedule</h2>
+      <button class="modal-close" onclick="closeModal('publishModal')">×</button>
+    </div>
+    <div id="publishModalBody"></div>
+    <div class="modal-footer" id="publishModalFooter"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Saved</div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG — set this to your Vercel deployment URL after deploying
+// e.g. "https://your-app.vercel.app"
+// Leave empty to test locally with a mock response
+const API_BASE = "";
+// ─────────────────────────────────────────────
+
+const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
+const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+// ── Persist ──
+function loadData() {
+  try {
+    if (localStorage.getItem("sh_version") !== "3") {
+      localStorage.clear();
+      localStorage.setItem("sh_version", "3");
+    }
+    employees = JSON.parse(localStorage.getItem("sh_emp"))    || seed().employees;
+    shifts    = JSON.parse(localStorage.getItem("sh_shifts")) || seed().shifts;
+  } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; }
+  nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
+  nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
+}
+function persist() {
+  localStorage.setItem("sh_emp",    JSON.stringify(employees));
+  localStorage.setItem("sh_shifts", JSON.stringify(shifts));
+  flash("✓ Saved");
+}
+function seed() {
+  return {
+    employees: [
+      { id:1, name:"Alex Rivera",  role:"manager", rate:22, phone:"+15550001111", color:COLORS[0] },
+      { id:2, name:"Sam Chen",     role:"server",  rate:16, phone:"+15550002222", color:COLORS[1] },
+      { id:3, name:"Jordan Kim",   role:"cashier", rate:15, phone:"",             color:COLORS[2] },
+      { id:4, name:"Casey Patel",  role:"cook",    rate:18, phone:"+15550004444", color:COLORS[3] },
+    ],
+    shifts: [
+      { id:1, empId:1, day:0, start:"08:00", end:"16:00", note:"Opening" },
+      { id:2, empId:2, day:0, start:"11:00", end:"19:00", note:"" },
+      { id:3, empId:3, day:1, start:"09:00", end:"17:00", note:"" },
+      { id:4, empId:4, day:2, start:"10:00", end:"18:00", note:"" },
+      { id:5, empId:1, day:4, start:"12:00", end:"20:00", note:"Closing" },
+    ]
+  };
+}
+
+let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
+loadData();
+
+// ── Helpers ──
+function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
+function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.rate||0) : 0; }
+function empHrs(id) { return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+hrs(s),0); }
+function empCost(id){ return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+cost(s),0); }
+function ini(n)     { return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+function fmtT(t)    { const [h,m]=t.split(":").map(Number); return m?`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`:`${h%12||12}${h>=12?"pm":"am"}`; }
+function fmtD(n)    { return "$"+n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,","); }
+function weekStart(off=0) {
+  const d=new Date(); const day=d.getDay(); const diff=day===0?-6:1-day;
+  d.setDate(d.getDate()+diff+off*7); d.setHours(0,0,0,0); return d;
+}
+function cleanPhone(p) {
+  // strip spaces/dashes, ensure + prefix for Twilio
+  const digits = p.replace(/[^\d+]/g,"");
+  return digits.startsWith("+") ? digits : "+1"+digits.replace(/\D/g,"");
+}
+
+// ── Toast ──
+function flash(msg="✓ Saved") {
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+// ── Render ──
+function render() {
+  const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
+  const opt={month:"short",day:"numeric"};
+  document.getElementById("weekLabel").textContent=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
+  const totalH=shifts.reduce((a,s)=>a+hrs(s),0);
+  const totalC=shifts.reduce((a,s)=>a+cost(s),0);
+  document.getElementById("statHours").textContent=totalH.toFixed(1)+"h";
+  document.getElementById("statShifts").textContent=shifts.length;
+  document.getElementById("statCost").textContent=fmtD(totalC);
+  renderSidebar(); renderGrid(); renderDrawer();
+}
+
+function renderSidebar() {
+  document.getElementById("sidebarList").innerHTML = employees.length===0
+    ? `<div class="empty-state">No staff yet.<br>Open Manage Staff →</div>`
+    : employees.map(e=>{
+        const h=empHrs(e.id), c=empCost(e.id);
+        return `<div class="employee-row">
+          <div class="avatar" style="background:${e.color}">${ini(e.name)}</div>
+          <div style="min-width:0;flex:1">
+            <div class="emp-name">${e.name}</div>
+            <div class="emp-role">${e.role}</div>
+          </div>
+          <div class="emp-hours">
+            <div>${h>0?h.toFixed(1)+"h":""}</div>
+            <div class="emp-cost">${c>0?fmtD(c):""}</div>
+          </div>
+        </div>`;
+      }).join("");
+}
+
+function renderGrid() {
+  const ws=weekStart(weekOff);
+  const today=new Date(); today.setHours(0,0,0,0);
+  let html=DAYS.map((d,i)=>{
+    const dd=new Date(ws); dd.setDate(ws.getDate()+i);
+    const isToday=dd.getTime()===today.getTime();
+    const dh=shifts.filter(s=>s.day===i).reduce((a,s)=>a+hrs(s),0);
+    const dc=shifts.filter(s=>s.day===i).reduce((a,s)=>a+cost(s),0);
+    return `<div class="day-header${isToday?" today":""}">
+      <div class="day-name">${d}</div>
+      <div class="day-date">${dd.getDate()}</div>
+      <div class="day-total">${dh>0?`${dh.toFixed(1)}h · ${fmtD(dc)}`:""}</div>
+    </div>`;
+  }).join("");
+  if (!employees.length) {
+    html+=`<div class="no-emp-grid">Open "Manage Staff" to add employees,<br>then start scheduling.</div>`;
+  } else {
+    employees.forEach((emp,ri)=>{
+      for(let d=0;d<7;d++){
+        const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
+        html+=`<div class="grid-cell${ri%2?" alt":""}" ondblclick="openAddShift(${emp.id},${d})">
+          ${cs.map(s=>`
+            <div class="shift-block" data-role="${emp.role}" onclick="openEditShift(${s.id})">
+              <button class="del-btn" onclick="event.stopPropagation();deleteShift(${s.id})">×</button>
+              <div>${s.note||emp.name.split(" ")[0]}</div>
+              <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
+            </div>`).join("")}
+          <button class="add-shift-btn" onclick="openAddShift(${emp.id},${d})">+</button>
+        </div>`;
+      }
+    });
+  }
+  document.getElementById("scheduleGrid").innerHTML=html;
+}
+
+function renderDrawer() {
+  const totalH=shifts.reduce((a,s)=>a+hrs(s),0);
+  const totalC=shifts.reduce((a,s)=>a+cost(s),0);
+  document.getElementById("drawerHours").textContent=totalH.toFixed(1)+"h";
+  document.getElementById("drawerCost").textContent=fmtD(totalC);
+  document.getElementById("drawerCount").textContent=employees.length;
+  document.getElementById("staffList").innerHTML = employees.length===0
+    ? `<div class="empty-state">No employees yet.<br>Add one above.</div>`
+    : employees.map(e=>{
+        const h=empHrs(e.id), c=empCost(e.id);
+        const hasPhone=!!(e.phone&&e.phone.trim());
+        return `<div class="staff-item">
+          <div class="staff-item-top">
+            <div class="avatar" style="background:${e.color};width:38px;height:38px;font-size:13px">${ini(e.name)}</div>
+            <div class="staff-info">
+              <div class="staff-name">${e.name}</div>
+              <div class="staff-meta">${e.role} &nbsp;·&nbsp; ${h.toFixed(1)}h this week</div>
+            </div>
+            <div class="staff-rate-wrap">
+              <span class="rate-sym">$</span>
+              <input class="rate-input" type="number" value="${e.rate||0}" min="0" step="0.5"
+                onchange="updateRate(${e.id},this.value)" title="Hourly rate">
+              <span class="rate-sym">/hr</span>
+            </div>
+            <div class="staff-weekly">
+              <div class="staff-weekly-amt">${fmtD(c)}</div>
+              <div class="staff-weekly-label">this week</div>
+            </div>
+            <button class="staff-remove" onclick="removeEmployee(${e.id})" title="Remove">×</button>
+          </div>
+          <div class="staff-item-phone">
+            <span class="phone-icon">📱</span>
+            <input class="phone-input" type="tel" placeholder="+1 555 000 0000"
+              value="${e.phone||""}"
+              onchange="updatePhone(${e.id},this.value)"
+              title="Phone number for SMS notifications">
+            <span class="phone-status ${hasPhone?"has-phone":"no-phone"}" id="phoneStatus_${e.id}">
+              ${hasPhone?"✓ SMS ready":"no phone"}
+            </span>
+          </div>
+        </div>`;
+      }).join("");
+}
+
+// ── Week nav ──
+function changeWeek(dir){ weekOff+=dir; render(); }
+
+// ── Drawer ──
+function openDrawer(){
+  document.getElementById("staffDrawer").classList.add("open");
+  document.getElementById("drawerOverlay").classList.add("open");
+  setTimeout(()=>document.getElementById("newName").focus(),300);
+}
+function closeDrawer(){
+  document.getElementById("staffDrawer").classList.remove("open");
+  document.getElementById("drawerOverlay").classList.remove("open");
+}
+
+// ── Employees ──
+function addEmployee(){
+  const name=document.getElementById("newName").value.trim();
+  if(!name){ document.getElementById("newName").focus(); return; }
+  const role=document.getElementById("newRole").value;
+  const rate=parseFloat(document.getElementById("newRate").value)||0;
+  const phone=document.getElementById("newPhone").value.trim();
+  employees.push({ id:nextEid++, name, role, rate, phone, color:COLORS[employees.length%COLORS.length] });
+  document.getElementById("newName").value="";
+  document.getElementById("newRate").value="";
+  document.getElementById("newPhone").value="";
+  persist(); render();
+}
+function removeEmployee(id){
+  if(!confirm("Remove this employee and all their shifts?")) return;
+  employees=employees.filter(e=>e.id!==id);
+  shifts=shifts.filter(s=>s.empId!==id);
+  persist(); render();
+}
+function updateRate(id,val){
+  const e=employees.find(x=>x.id===id);
+  if(e){ e.rate=parseFloat(val)||0; persist(); render(); }
+}
+function updatePhone(id,val){
+  const e=employees.find(x=>x.id===id);
+  if(e){
+    e.phone=val.trim();
+    persist();
+    // update status badge inline without full re-render
+    const badge=document.getElementById(`phoneStatus_${id}`);
+    if(badge){
+      const has=!!e.phone;
+      badge.className=`phone-status ${has?"has-phone":"no-phone"}`;
+      badge.textContent=has?"✓ SMS ready":"no phone";
+    }
+  }
+}
+
+// ── Shifts ──
+function buildTimeOptions() {
+  const opts=[];
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=15){
+    const val=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    const ampm=h>=12?"pm":"am"; const hh=h%12||12;
+    const label=m===0?`${hh}:00 ${ampm}`:`${hh}:${String(m).padStart(2,"0")} ${ampm}`;
+    opts.push(`<option value="${val}">${label}</option>`);
+  }
+  return opts.join("");
+}
+const TIME_OPTIONS=buildTimeOptions();
+function fillTimeSelects(start="09:00",end="17:00"){
+  document.getElementById("mStart").innerHTML=TIME_OPTIONS;
+  document.getElementById("mEnd").innerHTML=TIME_OPTIONS;
+  document.getElementById("mStart").value=start;
+  document.getElementById("mEnd").value=end;
+}
+
+function openAddShift(empId,day){
+  editSid=null;
+  document.getElementById("shiftModalTitle").textContent="Add Shift";
+  fillEmpSelect(empId);
+  if(day!==null) document.getElementById("mDay").value=day;
+  fillTimeSelects("09:00","17:00");
+  document.getElementById("mNote").value="";
+  document.getElementById("shiftModal").classList.add("open");
+}
+function openEditShift(id){
+  const s=shifts.find(x=>x.id===id); if(!s) return;
+  editSid=id;
+  document.getElementById("shiftModalTitle").textContent="Edit Shift";
+  fillEmpSelect(s.empId);
+  document.getElementById("mDay").value=s.day;
+  fillTimeSelects(s.start,s.end);
+  document.getElementById("mNote").value=s.note||"";
+  document.getElementById("shiftModal").classList.add("open");
+}
+function fillEmpSelect(selId){
+  document.getElementById("mEmp").innerHTML=employees.map(e=>
+    `<option value="${e.id}"${e.id===selId?" selected":""}>${e.name}</option>`
+  ).join("");
+}
+function saveShift(){
+  const empId=parseInt(document.getElementById("mEmp").value);
+  const day=parseInt(document.getElementById("mDay").value);
+  const start=document.getElementById("mStart").value;
+  const end=document.getElementById("mEnd").value;
+  const note=document.getElementById("mNote").value.trim();
+  if(!start||!end||start>=end){ alert("End time must be after start time."); return; }
+  if(editSid){ Object.assign(shifts.find(x=>x.id===editSid),{empId,day,start,end,note}); }
+  else { shifts.push({id:nextSid++,empId,day,start,end,note}); }
+  closeModal("shiftModal"); persist(); render();
+}
+function deleteShift(id){ shifts=shifts.filter(s=>s.id!==id); persist(); render(); }
+function clearWeek(){ if(!shifts.length||!confirm("Clear all shifts?")) return; shifts=[]; persist(); render(); }
+
+// ── Modals ──
+function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+document.getElementById("shiftModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("shiftModal"); });
+document.getElementById("publishModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("publishModal"); });
+document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") addEmployee(); });
+
+// ── Schedule message builder ──
+function buildScheduleMessage(emp) {
+  const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
+  const opt={month:"short",day:"numeric"};
+  const weekStr=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
+
+  const empShifts=shifts.filter(s=>s.empId===emp.id);
+  if(!empShifts.length){
+    return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}: You have no shifts scheduled this week.`;
+  }
+  const sorted=empShifts.slice().sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
+  const lines=sorted.map(s=>{
+    const note=s.note?` (${s.note})`:"";
+    return `  ${DAY_FULL[s.day]}: ${fmtT(s.start)}–${fmtT(s.end)}${note}`;
+  });
+  const totalH=empShifts.reduce((a,s)=>a+hrs(s),0);
+  return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}:\n${lines.join("\n")}\nTotal: ${totalH.toFixed(1)} hrs. Reply STOP to unsubscribe.`;
+}
+
+// ── Publish flow ──
+function openPublishModal(){
+  if(!shifts.length){ alert("No shifts scheduled yet."); return; }
+
+  // Figure out who has shifts
+  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
+  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
+  const withPhone=scheduledEmps.filter(e=>e.phone&&e.phone.trim());
+  const noPhone=scheduledEmps.filter(e=>!e.phone||!e.phone.trim());
+  const sampleEmp=withPhone[0]||scheduledEmps[0];
+
+  let bodyHTML=`
+    <div class="publish-preview">
+      <div class="publish-preview-label">Sample message preview</div>
+      <div class="publish-preview-msg">${sampleEmp ? escHtml(buildScheduleMessage(sampleEmp)) : "—"}</div>
+    </div>
+    <div class="publish-recipients">
+      <div class="publish-recipients-label">Recipients (${scheduledEmps.length} scheduled this week)</div>
+      ${scheduledEmps.map(e=>{
+        const has=!!(e.phone&&e.phone.trim());
+        return `<div class="recipient-row">
+          <div class="avatar" style="background:${e.color};width:28px;height:28px;font-size:11px;flex-shrink:0">${ini(e.name)}</div>
+          <div class="recipient-name">${e.name}</div>
+          <div class="recipient-phone">${has?e.phone:"—"}</div>
+          <span class="recipient-badge ${has?"badge-ok":"badge-warn"}">${has?"will receive SMS":"no phone"}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  if(noPhone.length>0){
+    bodyHTML=`<div class="publish-warning">⚠ ${noPhone.length} employee${noPhone.length>1?"s":""} (${noPhone.map(e=>e.name.split(" ")[0]).join(", ")}) ${noPhone.length>1?"have":"has"} no phone number and won't receive a text. Add numbers in Manage Staff.</div>`+bodyHTML;
+  }
+
+  if(!API_BASE){
+    bodyHTML+=`<div class="api-url-note">⚙ <strong>API_BASE not set.</strong> After deploying to Vercel, paste your deployment URL into the <code>API_BASE</code> variable at the top of this file.</div>`;
+  }
+
+  document.getElementById("publishModalTitle").textContent="Publish Schedule";
+  document.getElementById("publishModalBody").innerHTML=bodyHTML;
+  document.getElementById("publishModalFooter").innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('publishModal')">Cancel</button>
+    <button class="btn" style="background:var(--green);color:#fff;border-color:var(--green)"
+      onclick="sendSchedule()" id="sendBtn"
+      ${withPhone.length===0?"disabled":""}>
+      Send ${withPhone.length} Text${withPhone.length!==1?"s":""}
+    </button>`;
+
+  document.getElementById("publishModal").classList.add("open");
+}
+
+async function sendSchedule(){
+  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
+  const recipients=employees.filter(e=>scheduledEmpIds.includes(e.id)&&e.phone&&e.phone.trim());
+  if(!recipients.length){ alert("No recipients with phone numbers."); return; }
+
+  const messages=recipients.map(emp=>({
+    to: cleanPhone(emp.phone),
+    body: buildScheduleMessage(emp),
+    name: emp.name,
+  }));
+
+  const btn=document.getElementById("sendBtn");
+  btn.disabled=true;
+  btn.innerHTML=`<span class="spinner"></span> Sending…`;
+
+  // If no API_BASE, show a mock result for demo
+  if(!API_BASE){
+    await new Promise(r=>setTimeout(r,1200));
+    showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"demo", reason:"API_BASE not configured — set your Vercel URL to send real texts." })));
+    return;
+  }
+
+  try {
+    const res=await fetch(`/api/send-schedule`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages}),
+    });
+    const data=await res.json();
+    const results=data.results.map((r,i)=>({ name:messages[i].name, ...r }));
+    showPublishResults(results);
+  } catch(err){
+    showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"failed", reason: err.message })));
+  }
+}
+
+function showPublishResults(results){
+  const allOk=results.every(r=>r.status==="sent"||r.status==="demo");
+  document.getElementById("publishModalTitle").textContent= allOk ? "✓ Schedule Sent!" : "Send Results";
+  document.getElementById("publishModalBody").innerHTML=`
+    <div class="publish-recipients" style="padding-top:16px">
+      <div class="publish-recipients-label">Results</div>
+      ${results.map(r=>`
+        <div class="result-item">
+          <div class="result-name">${r.name}</div>
+          <div class="result-detail">${r.to||""}</div>
+          <span class="recipient-badge ${r.status==="sent"?"badge-sent":r.status==="demo"?"badge-ok":"badge-fail"}">
+            ${r.status==="sent"?"✓ sent":r.status==="demo"?"demo":r.status==="skipped"?"skipped":"✗ failed"}
+          </span>
+        </div>
+        ${r.reason?`<div style="padding:2px 0 6px 2px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">${escHtml(r.reason)}</div>`:""}
+      `).join("")}
+    </div>`;
+  document.getElementById("publishModalFooter").innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('publishModal')">Close</button>`;
+  if(allOk && results.some(r=>r.status==="sent")) flash("📤 Schedule sent!");
+}
+
+function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+render();
+</script>
+</body>
+</html>
