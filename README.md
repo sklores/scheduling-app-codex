@@ -8,7 +8,11 @@ Employee scheduling app with Twilio SMS notifications.
 shift-scheduler/
 ├── public/
 │   └── index.html        ← The scheduler app (frontend)
-├── index.js              ← Express server + SMS API
+├── index.js              ← Local dev server
+├── api/send-schedule.js      ← Vercel Serverless Twilio sender
+├── api/employee-login.js     ← Employee code+PIN login
+├── api/employee-schedule.js  ← Employee read-only schedule API
+├── public/employee.html      ← Employee portal UI
 ├── package.json
 ├── .env.example          ← Copy to .env with your credentials
 └── README.md
@@ -26,7 +30,7 @@ shift-scheduler/
    - Add these three secrets:
      - `TWILIO_ACCOUNT_SID` → your Twilio Account SID
      - `TWILIO_AUTH_TOKEN` → your Twilio Auth Token
-     - `TWILIO_PHONE_NUMBER` → your Twilio number e.g. `+15551234567`
+     - `TWILIO_FROM_NUMBER` → your Twilio number e.g. `+15551234567`
 
 3. **Run it**
    - StackBlitz will auto-run `npm start`
@@ -51,3 +55,39 @@ shift-scheduler/
 - Free trial lets you send to **verified numbers only**
 - Go to Twilio Console → Verified Caller IDs to add test numbers
 - Upgrade to paid to send to any number (~$0.0079/text)
+
+
+## Vercel Environment Variables
+
+Set these in **Vercel Project → Settings → Environment Variables**:
+
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+
+The frontend calls `/api/send-schedule`, and Twilio credentials are only read inside the serverless function (`api/send-schedule.js`).
+
+
+## Employee Portal (code + PIN)
+
+Managers continue using Supabase Auth on `public/index.html`.
+
+Employees use `public/employee.html` with:
+- Employee Code (e.g. `AB4821`)
+- 4-digit PIN
+
+Required env vars for employee endpoints:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `EMPLOYEE_PORTAL_SECRET`
+
+### Supabase schema updates
+
+```sql
+alter table public.employees
+  add column if not exists employee_code text unique not null,
+  add column if not exists pin_hash text not null,
+  add column if not exists is_active boolean default true;
+```
+
+> Keep `pin_hash` server-only. Do not expose it in client queries.
