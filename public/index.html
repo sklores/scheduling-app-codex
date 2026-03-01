@@ -87,8 +87,8 @@
   .add-shift-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
   /* ── Staff Drawer ── */
-  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
-  .drawer-overlay.open { display: block; }
+  .drawer-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
+  .drawer-overlay.open { display: block; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: -520px; width: 520px; height: 100vh; background: var(--surface); box-shadow: -8px 0 40px rgba(0,0,0,0.15); z-index: 301; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1); }
   .drawer.open { right: 0; }
   .drawer-header { background: var(--text); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
@@ -138,8 +138,8 @@
   .drawer-total-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
 
   /* ── Shift Modal ── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
-  .modal-overlay.open { display: flex; }
+  .modal-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; pointer-events: auto; }
   .modal { background: var(--surface); border-radius: 4px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
   .modal-header { padding: 16px 20px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
   .modal-header h2 { font-size: 14px; font-weight: 600; font-family: var(--mono); }
@@ -201,7 +201,10 @@
   <div id="bootDiagCounts">counts: employees=0 shifts=0</div>
   <div id="bootDiagLoops">calls(10s): grid=0 sync=0</div>
   <div id="bootDiagWarn" style="color:#ffd58a;min-height:14px"></div>
+  <div id="bootDiagProbe" style="color:#b6d7ff;min-height:28px;white-space:pre-wrap;margin-top:4px"></div>
   <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+    <button id="bootDiagProbeBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #58a;background:#123;color:#cde6ff;cursor:pointer">Probe Click Layer</button>
+    <button id="bootDiagUnblockBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #a85;background:#321;color:#ffe3c2;cursor:pointer">Unblock UI</button>
     <button id="bootDiagResetBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #6a6;background:#132;color:#d5ffd5;cursor:pointer">Reset Data + Reload</button>
     <button id="bootDiagDisableSyncBtn" style="font:11px ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border-radius:4px;border:1px solid #aa6;background:#331;color:#ffefc2;cursor:pointer">Disable Layout Sync + Reload</button>
   </div>
@@ -462,6 +465,66 @@ function disableLayoutSyncAndReload() {
 document.getElementById("bootDiagResetBtn")?.addEventListener("click", resetLocalDataAndReload);
 document.getElementById("bootDiagDisableSyncBtn")?.addEventListener("click", disableLayoutSyncAndReload);
 updateBootDiag("boot:overlay-ready");
+
+function describeElement(el) {
+  if (!el) return "none";
+  const cs = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return `${el.tagName.toLowerCase()}#${el.id||""}.${(el.className||"").toString().trim().replace(/\s+/g,".")} | pe=${cs.pointerEvents} pos=${cs.position} z=${cs.zIndex} op=${cs.opacity} vis=${cs.visibility} rect=${Math.round(rect.width)}x${Math.round(rect.height)}`;
+}
+
+function setProbeText(text) {
+  const el = document.getElementById("bootDiagProbe");
+  if (el) el.textContent = text;
+}
+
+function probeClickLayer() {
+  const x = Math.round(window.innerWidth * 0.5);
+  const y = Math.round(window.innerHeight * 0.5);
+  const topEl = document.elementFromPoint(x, y);
+  setProbeText(`probe @ ${x},${y}\n${describeElement(topEl)}`);
+  return topEl;
+}
+
+function isSchedulerSurface(el) {
+  if (!el) return false;
+  if (el.closest("#bootDiag")) return true;
+  return !!el.closest("header, .toolbar, .app-body, .sidebar, .grid-wrap, .schedule-grid, .drawer, .modal");
+}
+
+function unblockUI() {
+  const changed = [];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const all = Array.from(document.body.querySelectorAll("*"));
+
+  all.forEach((el) => {
+    if (el.id === "bootDiag" || el.closest("#bootDiag")) return;
+    const cs = getComputedStyle(el);
+    if (!["fixed", "absolute"].includes(cs.position)) return;
+    if (cs.pointerEvents === "none") return;
+    const rect = el.getBoundingClientRect();
+    const coversMost = rect.width >= vw * 0.85 && rect.height >= vh * 0.85;
+    if (!coversMost) return;
+    const looksOverlay = el.className.toString().includes("overlay") || Number(cs.zIndex || 0) >= 200 || Number(cs.opacity) < 0.2;
+    if (!looksOverlay) return;
+    el.style.pointerEvents = "none";
+    el.style.display = "none";
+    changed.push(describeElement(el));
+  });
+
+  if (changed.length) {
+    BOOT_DIAG.loopWarn = `Unblocked ${changed.length} overlay element(s)`;
+    setProbeText(`unblock changed:\n${changed.join("\n")}`);
+  } else {
+    setProbeText("unblock changed: none");
+  }
+  updateBootDiag("ui:unblock");
+  return changed;
+}
+
+document.getElementById("bootDiagProbeBtn")?.addEventListener("click", probeClickLayer);
+document.getElementById("bootDiagUnblockBtn")?.addEventListener("click", unblockUI);
 
 function showSafeModeBanner() {
   if (document.getElementById("safeModeBanner")) return;
@@ -1004,6 +1067,14 @@ function bootInitialRender() {
   mark("parseStorage:end");
 
   updateWeekStats();
+
+  setTimeout(() => {
+    const topEl = probeClickLayer();
+    if (!isSchedulerSurface(topEl)) {
+      BOOT_DIAG.loopWarn = "Watchdog: detected blocking layer at center, auto-unblocking";
+      unblockUI();
+    }
+  }, 750);
 
   requestAnimationFrame(() => {
     const staffStart = performance.now();
