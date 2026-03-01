@@ -384,16 +384,7 @@ const TIME_STEP_MINUTES = 30;
 const PERF_INIT_LOGS = true;
 const USE_UNIFIED_GRID = false;
 
-function readImportMetaEnv(key) {
-  try { return (0, eval)(`import.meta?.env?.${key}`); }
-  catch (_) { return undefined; }
-}
-
-const SUPABASE_URL = readImportMetaEnv("SUPABASE_URL") || (window.process && window.process.env && window.process.env.SUPABASE_URL) || window.__SUPABASE_URL__ || "";
-const SUPABASE_ANON_KEY = readImportMetaEnv("SUPABASE_ANON_KEY") || (window.process && window.process.env && window.process.env.SUPABASE_ANON_KEY) || window.__SUPABASE_ANON_KEY__ || "";
-const supabase = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY)
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
+let supabase = null;
 let appBooted = false;
 
 function showLoginGate(msg="") {
@@ -411,16 +402,35 @@ function showAppShell() {
   }
 }
 
-async function initAuthGate() {
-  if (!supabase) {
-    showAppShell();
-    return;
-  }
+function showFatalBootError(err) {
+  const message = err && err.message ? err.message : String(err || "Unknown error");
+  document.body.innerHTML = `
+    <div style="position:fixed;inset:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--sans)">
+      <div style="max-width:720px;width:100%;background:#1c1c1c;border:1px solid #333;border-radius:8px;padding:20px">
+        <h1 style="font-family:var(--mono);font-size:16px;margin-bottom:10px">App failed to load</h1>
+        <p style="color:#ddd;margin-bottom:12px;line-height:1.5">${escHtml(message)}</p>
+        <p style="color:#aaa;line-height:1.5">Check Vercel environment variables for <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>, then redeploy.</p>
+      </div>
+    </div>`;
+}
 
+async function loadSupabaseClient() {
+  const response = await fetch("/api/supabase-config", { cache: "no-store" });
+  const cfg = await response.json();
+  if (!response.ok) {
+    throw new Error(cfg.error || `Failed to load Supabase config (${response.status})`);
+  }
+  if (!cfg.url || !cfg.anonKey) {
+    throw new Error("Supabase config is incomplete.");
+  }
+  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
+}
+
+async function initAuthGate() {
   document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
     e.preventDefault();
     await supabase.auth.signOut();
-    showLoginGate("Signed out.");
+    window.location.reload();
   });
 
   document.getElementById("sendMagicLinkBtn")?.addEventListener("click", async () => {
@@ -443,6 +453,16 @@ async function initAuthGate() {
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session) showAppShell();
   });
+}
+
+async function bootApp() {
+  try {
+    await loadSupabaseClient();
+    await initAuthGate();
+  } catch (err) {
+    console.error("Failed to boot app", err);
+    showFatalBootError(err);
+  }
 }
 
 window.__SAFE_MODE = false;
@@ -1211,7 +1231,7 @@ function bootInitialRender() {
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-initAuthGate();
+bootApp();
 </script>
 </body>
 </html>
