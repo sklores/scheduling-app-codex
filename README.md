@@ -10,7 +10,7 @@ shift-scheduler/
 │   └── index.html        ← The scheduler app (frontend)
 ├── index.js              ← Local dev server
 ├── api/send-schedule.js      ← Vercel Serverless Twilio sender
-├── api/employee-login.js     ← Employee code+PIN login
+├── api/employee-login.js     ← Employee 4-digit code login
 ├── api/employee-schedule.js  ← Employee read-only schedule API
 ├── public/employee.html      ← Employee portal UI
 ├── package.json
@@ -68,13 +68,12 @@ Set these in **Vercel Project → Settings → Environment Variables**:
 The frontend calls `/api/send-schedule`, and Twilio credentials are only read inside the serverless function (`api/send-schedule.js`).
 
 
-## Employee Portal (code + PIN)
+## Employee Portal (4-digit code)
 
 Managers continue using Supabase Auth on `public/index.html`.
 
 Employees use `public/employee.html` with:
-- Employee Code (e.g. `AB4821`)
-- 4-digit PIN
+- Employee Code (exactly 4 digits)
 
 Required env vars for employee endpoints:
 - `SUPABASE_URL`
@@ -86,8 +85,11 @@ Required env vars for employee endpoints:
 ```sql
 alter table public.employees
   add column if not exists employee_code text unique not null,
-  add column if not exists pin_hash text not null,
   add column if not exists is_active boolean default true;
+
+create index if not exists idx_employees_employee_code on public.employees (employee_code);
 ```
 
-> Keep `pin_hash` server-only. Do not expose it in client queries.
+Employee portal URL: `/employee.html`
+
+Required employee auth secret: `EMPLOYEE_PORTAL_SECRET`.

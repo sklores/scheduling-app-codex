@@ -643,20 +643,15 @@ function cleanPhone(p) {
   return null;
 }
 
-function randomDigits(len=4){
-  let out="";
-  for(let i=0;i<len;i++) out += String(Math.floor(Math.random()*10));
-  return out;
+function generateEmployeeCode(){
+  return String(Math.floor(1000 + Math.random()*9000));
 }
-function generateEmployeeCode(name=""){
-  const letters = name.toUpperCase().replace(/[^A-Z]/g,"");
-  const prefix = (letters.slice(0,2) || "EM").padEnd(2,"X");
-  return `${prefix}${Math.floor(1000 + Math.random()*9000)}`;
-}
-async function sha256Hex(input){
-  const data = new TextEncoder().encode(String(input));
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+function generateUniqueEmployeeCode(){
+  for(let i=0;i<50;i++){
+    const code=generateEmployeeCode();
+    if(!employees.some(e=>String(e.employeeCode||"")===code)) return code;
+  }
+  return null;
 }
 
 // ── Toast ──
@@ -894,6 +889,14 @@ function renderDrawer() {
               ${hasPhone?"✓ SMS ready":"no phone"}
             </span>
           </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+            <span style="font-size:12px;color:var(--text-muted);min-width:130px">Employee Code (4 digits)</span>
+            <input class="phone-input" style="max-width:110px" type="text" inputmode="numeric" maxlength="4" placeholder="1234"
+              value="${e.employeeCode||""}"
+              onchange="updateEmployeeCode(${e.id},this.value)">
+            <button class="btn btn-ghost" style="padding:4px 8px" onclick="generateEmployeeCodeFor(${e.id})">Generate</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.isActive===false?"":"checked"} onchange="updateEmployeeActive(${e.id},this.checked)">Active</label>
+          </div>
         </div>`;
       }).join("");
 }
@@ -919,15 +922,11 @@ async function addEmployee(){
   const role=document.getElementById("newRole").value;
   const rate=parseFloat(document.getElementById("newRate").value)||0;
   const phone=document.getElementById("newPhone").value.trim();
-
-  const employeeCode = generateEmployeeCode(name);
-  const pin = randomDigits(4);
-  const pinHash = await sha256Hex(pin);
+  const employeeCode = generateUniqueEmployeeCode();
 
   employees.push({
     id:nextEid++, name, role, rate, phone,
-    employeeCode,
-    pinHash,
+    employeeCode: employeeCode || "",
     isActive: true,
     color:COLORS[employees.length%COLORS.length]
   });
@@ -935,11 +934,7 @@ async function addEmployee(){
   document.getElementById("newRate").value="";
   document.getElementById("newPhone").value="";
   persist(); render();
-  alert(`Employee access created:
-Code: ${employeeCode}
-PIN: ${pin}
-
-Save this now. PIN is shown only once.`);
+  if(employeeCode) alert(`Employee code created: ${employeeCode}`);
 }
 function removeEmployee(id){
   if(!confirm("Remove this employee and all their shifts?")) return;
@@ -964,6 +959,42 @@ function updatePhone(id,val){
       badge.textContent=has?"✓ SMS ready":"no phone";
     }
   }
+}
+
+function updateEmployeeCode(id,val){
+  const code=String(val||"").trim();
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  if(code && !/^\d{4}$/.test(code)){
+    flash("Employee code must be exactly 4 digits");
+    renderDrawer();
+    return;
+  }
+  const dupe=employees.find(x=>x.id!==id && String(x.employeeCode||"")===code);
+  if(dupe){
+    flash("Employee code already in use");
+    renderDrawer();
+    return;
+  }
+  e.employeeCode=code;
+  persist();
+  flash("Employee code saved");
+}
+function generateEmployeeCodeFor(id){
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  const code=generateUniqueEmployeeCode();
+  if(!code){ flash("Unable to generate unique code"); return; }
+  e.employeeCode=code;
+  persist();
+  renderDrawer();
+  flash(`Code generated: ${code}`);
+}
+function updateEmployeeActive(id,checked){
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  e.isActive=!!checked;
+  persist();
 }
 
 // ── Shifts ──

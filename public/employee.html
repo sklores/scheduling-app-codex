@@ -34,9 +34,8 @@ function loginView(message="") {
   document.getElementById("app").innerHTML = `
     <div class="card">
       <h1>Employee Portal</h1>
-      <div class="muted">Sign in with your employee code and 4-digit PIN.</div>
-      <div class="row"><label>Employee Code</label><input id="code" placeholder="AB4821" /></div>
-      <div class="row"><label>4-digit PIN</label><input id="pin" placeholder="1234" inputmode="numeric" maxlength="4" /></div>
+      <div class="muted">Enter your 4-digit code.</div>
+      <div class="row"><label>Employee Code</label><input id="code" placeholder="1234" inputmode="numeric" maxlength="4" /></div>
       <button id="loginBtn">Login</button>
       <div class="err" id="err">${escHtml(message)}</div>
     </div>`;
@@ -74,11 +73,10 @@ function scheduleView(data) {
 
 async function doLogin() {
   const code = document.getElementById("code").value.trim();
-  const pin = document.getElementById("pin").value.trim();
   const res = await fetch("/api/employee-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code, pin }),
+    body: JSON.stringify({ code }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.token) {
