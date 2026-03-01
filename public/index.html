@@ -592,6 +592,9 @@ function loadData() {
   } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; templates=[]; }
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
+  window.__BOOT_EMP_COUNT = employees.length;
+  window.__BOOT_SHIFT_COUNT = shifts.length;
+  updateBootDiag("parseStorage:parsed-counts");
 }
 function persist() {
   localStorage.setItem("sh_emp",    JSON.stringify(employees));
@@ -913,7 +916,7 @@ function closeDrawer(){
 }
 
 // ── Employees ──
-function addEmployee(){
+async function addEmployee(){
   const name=document.getElementById("newName").value.trim();
   if(!name){ document.getElementById("newName").focus(); return; }
   const role=document.getElementById("newRole").value;
@@ -1182,6 +1185,7 @@ function getPublishRecipients() {
 
 // ── Publish flow ──
 function openPublishModal(){
+  mark("publishInit");
   if(!shifts.length){ alert("No shifts scheduled yet."); return; }
 
   const { scheduledEmps, recipients, missingPhone, invalidPhone } = getPublishRecipients();
