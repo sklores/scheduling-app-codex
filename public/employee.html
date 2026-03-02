@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Employee Portal</title>
+  <style>
+    :root { --bg:#f5f3ee; --surface:#fff; --border:#d9d5cc; --text:#1a1916; --muted:#7a7770; --accent:#2d5a27; }
+    body { margin:0; font-family:Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:720px; margin:40px auto; padding:0 16px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px; }
+    h1 { margin:0 0 8px; font-size:22px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .row { margin-top:12px; }
+    label { display:block; font-size:12px; margin-bottom:6px; color:var(--muted); }
+    input { width:100%; padding:10px; border:1px solid var(--border); border-radius:4px; }
+    button { margin-top:10px; padding:10px 14px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:4px; cursor:pointer; }
+    button.ghost { background:none; color:var(--text); border-color:var(--border); }
+    .err { margin-top:10px; color:#b3342b; font-size:13px; }
+    .week { margin-top:14px; }
+    .shift { border:1px solid var(--border); border-radius:6px; padding:10px; background:#fff; margin-top:8px; }
+    .top { display:flex; justify-content:space-between; align-items:center; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"></div>
+
+<script>
+const TOKEN_KEY = "employee_token";
+
+function escHtml(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function loginView(message="") {
+  document.getElementById("app").innerHTML = `
+    <div class="card">
+      <h1>Employee Portal</h1>
+      <div class="muted">Enter your 4-digit code.</div>
+      <div class="row"><label>Employee Code</label><input id="code" placeholder="1234" inputmode="numeric" maxlength="4" /></div>
+      <button id="loginBtn">Login</button>
+      <div class="err" id="err">${escHtml(message)}</div>
+    </div>`;
+
+  document.getElementById("loginBtn").addEventListener("click", doLogin);
+}
+
+function scheduleView(data) {
+  const shifts = Array.isArray(data.shifts) ? data.shifts : [];
+  const renderShift = (s) => {
+    const start = new Date(s.start_time);
+    const end = new Date(s.end_time);
+    const dayLabel = isNaN(start.getTime()) ? "Invalid date" : start.toLocaleDateString();
+    const startLabel = isNaN(start.getTime()) ? "--:--" : start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const endLabel = isNaN(end.getTime()) ? "--:--" : end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return `<div class="shift"><div><strong>${escHtml(dayLabel)}</strong></div><div>${escHtml(startLabel)} - ${escHtml(endLabel)}</div>${s.notes?`<div class="muted">${escHtml(s.notes)}</div>`:""}</div>`;
+  };
+
+  document.getElementById("app").innerHTML = `
+    <div class="card">
+      <div class="top"><h1 style="margin:0">Welcome, ${escHtml(data.employee.name)}</h1><button class="ghost" id="logoutBtn">Logout</button></div>
+      <div class="muted">Read-only schedule access (current week).</div>
+      <div class="week"><h3>Current Week</h3>${shifts.length ? shifts.map(renderShift).join("") : '<div class="muted">No shifts this week.</div>'}</div>
+    </div>`;
+
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    localStorage.removeItem(TOKEN_KEY);
+    loginView();
+  });
+}
+
+
+async function doLogin() {
+  const code = document.getElementById("code").value.trim();
+  const res = await fetch("/api/employee-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.token) {
+    document.getElementById("err").textContent = data.error || "Unable to sign in.";
+    return;
+  }
+  localStorage.setItem(TOKEN_KEY, data.token);
+  await loadSchedule();
+}
+
+async function loadSchedule() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    loginView();
+    return;
+  }
+  const res = await fetch("/api/employee-schedule", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    localStorage.removeItem(TOKEN_KEY);
+    loginView(data.error || "Session expired. Please sign in again.");
+    return;
+  }
+  scheduleView(data);
+}
+
+loadSchedule();
+</script>
+</body>
+</html>
