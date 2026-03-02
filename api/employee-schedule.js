@@ -42,12 +42,12 @@ module.exports = async function employeeScheduleHandler(req, res) {
 
   try {
     const query = [
-      "select=id,start_time,end_time,notes",
+      "select=id,start_ts,end_ts,notes",
       `employee_id=eq.${encodeURIComponent(payload.employeeId)}`,
       `org_id=eq.${encodeURIComponent(payload.orgId)}`,
-      `start_time=gte.${encodeURIComponent(start)}` ,
-      `start_time=lte.${encodeURIComponent(end)}` ,
-      "order=start_time.asc",
+      `start_ts=gte.${encodeURIComponent(start)}` ,
+      `start_ts=lte.${encodeURIComponent(end)}` ,
+      "order=start_ts.asc",
     ].join("&");
 
     const shifts = await supabaseFetch(`/rest/v1/shifts?${query}`);

@@ -846,10 +846,10 @@ function persist() {
 function seed() {
   return {
     employees: [
-      { id:1, name:"Alex Rivera",  role:"manager", rate:22, phone:"+15550001111", color:COLORS[0] },
-      { id:2, name:"Sam Chen",     role:"server",  rate:16, phone:"+15550002222", color:COLORS[1] },
-      { id:3, name:"Jordan Kim",   role:"cashier", rate:15, phone:"",             color:COLORS[2] },
-      { id:4, name:"Casey Patel",  role:"cook",    rate:18, phone:"+15550004444", color:COLORS[3] },
+      { id:1, name:"Alex Rivera",  role:"manager", hourly_rate:22, phone:"+15550001111", color:COLORS[0] },
+      { id:2, name:"Sam Chen",     role:"server",  hourly_rate:16, phone:"+15550002222", color:COLORS[1] },
+      { id:3, name:"Jordan Kim",   role:"cashier", hourly_rate:15, phone:"",             color:COLORS[2] },
+      { id:4, name:"Casey Patel",  role:"cook",    hourly_rate:18, phone:"+15550004444", color:COLORS[3] },
     ],
     shifts: [
       { id:1, empId:1, day:0, start:"08:00", end:"16:00", note:"Opening" },
@@ -865,7 +865,7 @@ let employees=[], shifts=[], templates=[], nextEid=1, nextSid=1, weekOff=0, edit
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
-function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.rate||0) : 0; }
+function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.hourly_rate||0) : 0; }
 function empHrs(id) { return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+hrs(s),0); }
 function empCost(id){ return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+cost(s),0); }
 function ini(n)     { return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
@@ -920,7 +920,7 @@ async function hydrateEmployeePortalFieldsFromSupabase(){
   if(!window._supabaseClient || !currentOrgId) return;
   const { data, error } = await window._supabaseClient
     .from("employees")
-    .select("id, name, role, phone, rate, hourly_rate, color, employee_code, is_active, org_id")
+    .select("id, name, role, phone, hourly_rate, color, employee_code, is_active, org_id")
     .eq("org_id", currentOrgId)
     .order("id", { ascending: true });
   if(error || !Array.isArray(data)) {
@@ -932,7 +932,7 @@ async function hydrateEmployeePortalFieldsFromSupabase(){
     id: Number(r.id),
     name: r.name || `Employee ${r.id}`,
     role: r.role || "staff",
-    rate: Number.isFinite(Number(r.rate)) ? Number(r.rate) : (Number.isFinite(Number(r.hourly_rate)) ? Number(r.hourly_rate) : 0),
+    hourly_rate: Number.isFinite(Number(r.hourly_rate)) ? Number(r.hourly_rate) : 0,
     phone: r.phone || "",
     color: r.color || COLORS[idx % COLORS.length],
     employee_code: r.employee_code ? String(r.employee_code) : "",
@@ -1152,7 +1152,7 @@ function renderDrawer() {
             </div>
             <div class="staff-rate-wrap">
               <span class="rate-sym">$</span>
-              <input class="rate-input" type="number" value="${e.rate||0}" min="0" step="0.5"
+              <input class="rate-input" type="number" value="${e.hourly_rate||0}" min="0" step="0.5"
                 onchange="updateRate(${e.id},this.value)" title="Hourly rate">
               <span class="rate-sym">/hr</span>
             </div>
@@ -1203,12 +1203,12 @@ async function addEmployee(){
   const name=document.getElementById("newName").value.trim();
   if(!name){ document.getElementById("newName").focus(); return; }
   const role=document.getElementById("newRole").value;
-  const rate=parseFloat(document.getElementById("newRate").value)||0;
+  const hourly_rate=parseFloat(document.getElementById("newRate").value)||0;
   const phone=document.getElementById("newPhone").value.trim();
   const employeeCode = generateUniqueEmployeeCode();
 
   employees.push({
-    id:nextEid++, name, role, rate, phone,
+    id:nextEid++, name, role, hourly_rate, phone,
     employee_code: employeeCode || "",
     is_active: true,
     color:COLORS[employees.length%COLORS.length]
@@ -1227,13 +1227,14 @@ function removeEmployee(id){
 }
 function updateRate(id,val){
   const e=employees.find(x=>x.id===id);
-  if(e){ e.rate=parseFloat(val)||0; persist(); render(); }
+  if(e){ e.hourly_rate=parseFloat(val)||0; persist(); saveEmployeeToSupabase(e).then((r)=>{ if(!r.ok && !r.skipped) showStaffSaveMessage(r.error?.message||"Could not save hourly rate", true); else showStaffSaveMessage("Hourly rate saved."); }); render(); }
 }
 function updatePhone(id,val){
   const e=employees.find(x=>x.id===id);
   if(e){
     e.phone=val.trim();
     persist();
+    saveEmployeeToSupabase(e).then((r)=>{ if(!r.ok && !r.skipped) showStaffSaveMessage(r.error?.message||"Could not save phone", true); });
     // update status badge inline without full re-render
     const badge=document.getElementById(`phoneStatus_${id}`);
     if(badge){
@@ -1244,9 +1245,13 @@ function updatePhone(id,val){
   }
 }
 
-async function saveEmployeePortalFieldsToSupabase(emp){
+async function saveEmployeeToSupabase(emp){
   if (!window._supabaseClient || !emp || emp.id == null) return { ok:false, skipped:true };
   const payload = {
+    name: emp.name || null,
+    role: emp.role || null,
+    phone: emp.phone || null,
+    hourly_rate: Number.isFinite(Number(emp.hourly_rate)) ? Number(emp.hourly_rate) : 0,
     employee_code: emp.employee_code || null,
     is_active: !!emp.is_active,
   };
@@ -1281,7 +1286,7 @@ async function updateEmployeeCode(id,val){
   const prev=e.employee_code||"";
   e.employee_code=code;
   persist();
-  const result = await saveEmployeePortalFieldsToSupabase(e);
+  const result = await saveEmployeeToSupabase(e);
   if (!result.ok && !result.skipped) {
     e.employee_code=prev;
     persist();
@@ -1303,7 +1308,7 @@ async function generateEmployeeCodeFor(id){
     code=c;
     e.employee_code=code;
     persist();
-    const result = await saveEmployeePortalFieldsToSupabase(e);
+    const result = await saveEmployeeToSupabase(e);
     if(result.ok || result.skipped){
       renderDrawer();
       await hydrateEmployeePortalFieldsFromSupabase();
@@ -1322,7 +1327,7 @@ async function updateEmployeeActive(id,checked){
   const prev=e.is_active;
   e.is_active=!!checked;
   persist();
-  const result = await saveEmployeePortalFieldsToSupabase(e);
+  const result = await saveEmployeeToSupabase(e);
   if(!result.ok && !result.skipped){
     e.is_active=prev;
     persist();
