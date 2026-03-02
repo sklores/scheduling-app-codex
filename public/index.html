@@ -494,13 +494,13 @@ async function ensureManagerProfileAndRole() {
   let profile = existingProfile;
   if (!profile) {
     const { data: newOrg, error: newOrgError } = await window._supabaseClient
-      .from("organizations")
+      .from("orgs")
       .insert({ name: "Default Restaurant" })
       .select("id")
       .single();
 
     if (newOrgError || !newOrg?.id) {
-      throw new Error(newOrgError?.message || "Unable to create default organization.");
+      throw new Error(newOrgError?.message || "Unable to create default org (table: orgs).");
     }
 
     const { data: newProfile, error: newProfileError } = await window._supabaseClient
@@ -510,7 +510,7 @@ async function ensureManagerProfileAndRole() {
       .single();
 
     if (newProfileError || !newProfile) {
-      throw new Error(newProfileError?.message || "Unable to create default manager profile.");
+      throw new Error(newProfileError?.message || "Unable to create default manager profile in profiles table.");
     }
 
     profile = newProfile;
@@ -631,8 +631,12 @@ async function initAuthGate(defaultLoginMessage = "") {
 
   window._supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     if (!session) return;
-    const roleCheck = await ensureManagerProfileAndRole();
-    if (!roleCheck?.redirected) showAppShell();
+    try {
+      const roleCheck = await ensureManagerProfileAndRole();
+      if (!roleCheck?.redirected) showAppShell();
+    } catch (err) {
+      showFatal(new Error(`Manager role bootstrap failed: ${err?.message || err}`));
+    }
   });
 }
 
