@@ -307,6 +307,7 @@
       <h3 style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px">Templates</h3>
       <div id="templateList"></div>
     </div>
+    <div id="staffSaveMsg" style="display:none;margin:10px 20px;padding:8px 10px;border-radius:4px;font-size:12px"></div>
     <div id="staffList"></div>
   </div>
   <div class="drawer-footer">
@@ -727,7 +728,7 @@ async function initAuthGate(defaultLoginMessage = "") {
   const { data } = await window._supabaseClient.auth.getSession();
   if (data && data.session) {
     const roleCheck = await ensureManagerProfileAndRole();
-    if (!roleCheck?.redirected) showAppShell();
+    if (!roleCheck?.redirected) { await hydrateEmployeePortalFieldsFromSupabase(); showAppShell(); }
   } else {
     showLoginGate(defaultLoginMessage);
   }
@@ -736,7 +737,7 @@ async function initAuthGate(defaultLoginMessage = "") {
     if (!session) return;
     try {
       const roleCheck = await ensureManagerProfileAndRole();
-      if (!roleCheck?.redirected) showAppShell();
+      if (!roleCheck?.redirected) { await hydrateEmployeePortalFieldsFromSupabase(); showAppShell(); }
     } catch (err) {
       showFatal(new Error(`Manager role bootstrap failed: ${err?.message || err}`));
     }
@@ -901,6 +902,41 @@ function generateUniqueEmployeeCode(){
 function flash(msg="✓ Saved") {
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+function showStaffSaveMessage(msg="", isError=false){
+  const el=document.getElementById("staffSaveMsg");
+  if(!el) return;
+  if(!msg){
+    el.style.display="none";
+    el.textContent="";
+    return;
+  }
+  el.style.display="block";
+  el.textContent=msg;
+  el.style.background=isError?"#fff3f1":"#eef8ef";
+  el.style.border=`1px solid ${isError?"#f2b8ae":"#bfe0c2"}`;
+  el.style.color=isError?"#9f2f21":"#1f6a2b";
+}
+
+async function hydrateEmployeePortalFieldsFromSupabase(){
+  if(!window._supabaseClient) return;
+  const { data, error } = await window._supabaseClient
+    .from("employees")
+    .select("id, employee_code, is_active");
+  if(error || !Array.isArray(data)) return;
+  const byId = new Map(data.map((r)=>[Number(r.id), r]));
+  employees = employees.map((e)=>{
+    const row = byId.get(Number(e.id));
+    if(!row) return e;
+    return {
+      ...e,
+      employeeCode: row.employee_code ? String(row.employee_code) : "",
+      isActive: row.is_active !== false,
+    };
+  });
+  persist();
+  renderDrawer();
 }
 
 // ── Render ──
@@ -1217,10 +1253,8 @@ async function saveEmployeePortalFieldsToSupabase(emp){
 
   if (error) {
     const msg = (error.message || "").toLowerCase();
-    if (msg.includes("duplicate") || msg.includes("unique")) {
-      return { ok:false, unique:true, error };
-    }
-    return { ok:false, error };
+    const isUnique = error.code === "23505" || msg.includes("duplicate") || msg.includes("unique");
+    return { ok:false, unique:isUnique, error };
   }
   return { ok:true };
 }
@@ -1230,13 +1264,13 @@ async function updateEmployeeCode(id,val){
   const e=employees.find(x=>x.id===id);
   if(!e) return;
   if(code && !/^\d{4}$/.test(code)){
-    flash("Employee code must be exactly 4 digits");
+    showStaffSaveMessage("Employee code must be exactly 4 digits or blank.", true);
     renderDrawer();
     return;
   }
   const dupe=employees.find(x=>x.id!==id && String(x.employeeCode||"")===code);
   if(dupe){
-    flash("Employee code already in use");
+    showStaffSaveMessage("That code is already taken. Pick a different 4-digit code.", true);
     renderDrawer();
     return;
   }
@@ -1248,10 +1282,10 @@ async function updateEmployeeCode(id,val){
     e.employeeCode=prev;
     persist();
     renderDrawer();
-    flash(result.unique ? "Employee code already in use" : "Could not save employee code");
+    showStaffSaveMessage(result.unique ? "That code is already taken. Pick a different 4-digit code." : (result?.error?.message || "Could not save employee code"), true);
     return;
   }
-  flash("Employee code saved");
+  showStaffSaveMessage("Employee code saved.");
 }
 async function generateEmployeeCodeFor(id){
   const e=employees.find(x=>x.id===id);
@@ -1267,13 +1301,13 @@ async function generateEmployeeCodeFor(id){
     const result = await saveEmployeePortalFieldsToSupabase(e);
     if(result.ok || result.skipped){
       renderDrawer();
-      flash(`Code generated: ${code}`);
+      showStaffSaveMessage(`Code generated: ${code}`);
       return;
     }
     if(!result.unique) break;
     attempts++;
   }
-  flash("Unable to generate unique code");
+  showStaffSaveMessage("Unable to generate a unique 4-digit code after several tries.", true);
   renderDrawer();
 }
 async function updateEmployeeActive(id,checked){
@@ -1287,7 +1321,7 @@ async function updateEmployeeActive(id,checked){
     e.isActive=prev;
     persist();
     renderDrawer();
-    flash(result?.error?.message || "Could not save active status");
+    showStaffSaveMessage(result?.error?.message || "Could not save active status", true);
   }
 }
 
