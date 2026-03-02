@@ -9,7 +9,7 @@ function getWeekRange() {
   d.setUTCDate(d.getUTCDate() + diff);
   const start = d;
   const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + 13);
+  end.setUTCDate(start.getUTCDate() + 6);
   const toISODate = (x) => x.toISOString().slice(0, 10);
   return { start: toISODate(start), end: toISODate(end) };
 }

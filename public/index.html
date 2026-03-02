@@ -211,6 +211,7 @@
       <button class="btn btn-ghost" id="passwordSignUpBtn" style="flex:1">Create Account</button>
     </div>
     <a href="#" id="loginModeToggle" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--accent);text-decoration:none">Use password instead</a>
+    <div style="margin-top:10px"><a href="/employee.html" style="font-size:12px;color:var(--accent);text-decoration:none">Employees: View your schedule</a></div>
     <div id="loginMsg" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
   </div>
 </div>
@@ -1084,7 +1085,28 @@ function updatePhone(id,val){
   }
 }
 
-function updateEmployeeCode(id,val){
+async function saveEmployeePortalFieldsToSupabase(emp){
+  if (!window._supabaseClient || !emp || emp.id == null) return { ok:false, skipped:true };
+  const payload = {
+    employee_code: emp.employeeCode || null,
+    is_active: emp.isActive !== false,
+  };
+  const { error } = await window._supabaseClient
+    .from("employees")
+    .update(payload)
+    .eq("id", emp.id);
+
+  if (error) {
+    const msg = (error.message || "").toLowerCase();
+    if (msg.includes("duplicate") || msg.includes("unique")) {
+      return { ok:false, unique:true, error };
+    }
+    return { ok:false, error };
+  }
+  return { ok:true };
+}
+
+async function updateEmployeeCode(id,val){
   const code=String(val||"").trim();
   const e=employees.find(x=>x.id===id);
   if(!e) return;
@@ -1099,25 +1121,55 @@ function updateEmployeeCode(id,val){
     renderDrawer();
     return;
   }
+  const prev=e.employeeCode||"";
   e.employeeCode=code;
   persist();
+  const result = await saveEmployeePortalFieldsToSupabase(e);
+  if (!result.ok && !result.skipped) {
+    e.employeeCode=prev;
+    persist();
+    renderDrawer();
+    flash(result.unique ? "Employee code already in use" : "Could not save employee code");
+    return;
+  }
   flash("Employee code saved");
 }
-function generateEmployeeCodeFor(id){
+async function generateEmployeeCodeFor(id){
   const e=employees.find(x=>x.id===id);
   if(!e) return;
-  const code=generateUniqueEmployeeCode();
-  if(!code){ flash("Unable to generate unique code"); return; }
-  e.employeeCode=code;
-  persist();
+  let attempts=0;
+  let code=null;
+  while(attempts<10){
+    const c=generateUniqueEmployeeCode();
+    if(!c) break;
+    code=c;
+    e.employeeCode=code;
+    persist();
+    const result = await saveEmployeePortalFieldsToSupabase(e);
+    if(result.ok || result.skipped){
+      renderDrawer();
+      flash(`Code generated: ${code}`);
+      return;
+    }
+    if(!result.unique) break;
+    attempts++;
+  }
+  flash("Unable to generate unique code");
   renderDrawer();
-  flash(`Code generated: ${code}`);
 }
-function updateEmployeeActive(id,checked){
+async function updateEmployeeActive(id,checked){
   const e=employees.find(x=>x.id===id);
   if(!e) return;
+  const prev=e.isActive;
   e.isActive=!!checked;
   persist();
+  const result = await saveEmployeePortalFieldsToSupabase(e);
+  if(!result.ok && !result.skipped){
+    e.isActive=prev;
+    persist();
+    renderDrawer();
+    flash("Could not save active status");
+  }
 }
 
 // ── Shifts ──

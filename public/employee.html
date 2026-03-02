@@ -26,7 +26,7 @@
   <div class="wrap" id="app"></div>
 
 <script>
-const TOKEN_KEY = "employeePortalToken";
+const TOKEN_KEY = "employee_token";
 
 function escHtml(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
@@ -45,24 +45,13 @@ function loginView(message="") {
 
 function scheduleView(data) {
   const shifts = Array.isArray(data.shifts) ? data.shifts : [];
-  const byWeek = { current: [], next: [] };
-  const start = new Date(data.range.start + "T00:00:00Z");
-  const nextStart = new Date(start); nextStart.setUTCDate(start.getUTCDate() + 7);
-
-  shifts.forEach((s) => {
-    const d = new Date((s.date || "") + "T00:00:00Z");
-    if (!isNaN(d) && d >= nextStart) byWeek.next.push(s);
-    else byWeek.current.push(s);
-  });
-
   const renderShift = (s) => `<div class="shift"><div><strong>${escHtml(s.date)}</strong></div><div>${escHtml(s.start_time)} - ${escHtml(s.end_time)}</div>${s.notes?`<div class="muted">${escHtml(s.notes)}</div>`:""}</div>`;
 
   document.getElementById("app").innerHTML = `
     <div class="card">
       <div class="top"><h1 style="margin:0">Welcome, ${escHtml(data.employee.name)}</h1><button class="ghost" id="logoutBtn">Logout</button></div>
-      <div class="muted">Read-only schedule access.</div>
-      <div class="week"><h3>Current Week</h3>${byWeek.current.length ? byWeek.current.map(renderShift).join("") : '<div class="muted">No shifts scheduled.</div>'}</div>
-      <div class="week"><h3>Next Week</h3>${byWeek.next.length ? byWeek.next.map(renderShift).join("") : '<div class="muted">No shifts scheduled.</div>'}</div>
+      <div class="muted">Read-only schedule access (current week).</div>
+      <div class="week"><h3>Current Week</h3>${shifts.length ? shifts.map(renderShift).join("") : '<div class="muted">No shifts this week.</div>'}</div>
     </div>`;
 
   document.getElementById("logoutBtn").addEventListener("click", () => {
@@ -70,6 +59,7 @@ function scheduleView(data) {
     loginView();
   });
 }
+
 
 async function doLogin() {
   const code = document.getElementById("code").value.trim();
