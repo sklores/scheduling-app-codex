@@ -470,50 +470,37 @@ async function ensureManagerProfileAndRole() {
   const user = userData.user;
   const authUid = user.id;
 
-  let existingProfile = null;
-  let existingProfileError = null;
-  let status = null;
-
   const profileRes = await window._supabaseClient
     .from("profiles")
     .select("user_id, org_id, role, display_name")
     .eq("user_id", authUid)
     .maybeSingle();
 
-  existingProfile = profileRes.data;
-  existingProfileError = profileRes.error;
-  status = profileRes.status;
+  let profile = profileRes.data;
+  const profileErr = profileRes.error;
+  const status = profileRes.status;
 
-  if (existingProfileError && status !== 406) {
-    // Defensive fallback so old schema mismatches don't hard-crash boot.
-    console.warn("[auth] profile lookup warning", existingProfileError.message || existingProfileError);
-    existingProfile = null;
-    existingProfileError = null;
+  if (!profile && (!profileErr || status === 406)) {
+    const bootRes = await fetch("/api/bootstrap-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: authUid, email: user.email || "" }),
+    });
+
+    const bootData = await bootRes.json().catch(() => ({}));
+    if (!bootRes.ok || !bootData.profile) {
+      throw new Error(bootData.error || "Failed to bootstrap manager org/profile via serverless endpoint.");
+    }
+
+    profile = bootData.profile;
   }
 
-  let profile = existingProfile;
+  if (!profile && profileErr) {
+    throw new Error(profileErr.message || "Unable to load manager profile.");
+  }
+
   if (!profile) {
-    const { data: newOrg, error: newOrgError } = await window._supabaseClient
-      .from("orgs")
-      .insert({ name: "Default Restaurant" })
-      .select("id")
-      .single();
-
-    if (newOrgError || !newOrg?.id) {
-      throw new Error(newOrgError?.message || "Unable to create default org (table: orgs).");
-    }
-
-    const { data: newProfile, error: newProfileError } = await window._supabaseClient
-      .from("profiles")
-      .insert({ user_id: authUid, org_id: newOrg.id, role: "admin", display_name: user.email || null })
-      .select("user_id, org_id, role, display_name")
-      .single();
-
-    if (newProfileError || !newProfile) {
-      throw new Error(newProfileError?.message || "Unable to create default manager profile in profiles table.");
-    }
-
-    profile = newProfile;
+    throw new Error("Manager profile is missing after bootstrap.");
   }
 
   if (profile.role === "employee") {
@@ -523,6 +510,7 @@ async function ensureManagerProfileAndRole() {
 
   return profile;
 }
+
 
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
