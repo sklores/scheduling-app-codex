@@ -864,10 +864,11 @@ function seed() {
 let employees=[], shifts=[], templates=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
 
 // ── Helpers ──
+function sameEmpId(a,b){ return String(a)===String(b); }
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
-function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.hourly_rate||0) : 0; }
-function empHrs(id) { return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+hrs(s),0); }
-function empCost(id){ return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+cost(s),0); }
+function cost(s)    { const e=employees.find(x=>sameEmpId(x.id,s.empId)); return e ? hrs(s)*(e.hourly_rate||0) : 0; }
+function empHrs(id) { return shifts.filter(s=>sameEmpId(s.empId,id)).reduce((a,s)=>a+hrs(s),0); }
+function empCost(id){ return shifts.filter(s=>sameEmpId(s.empId,id)).reduce((a,s)=>a+cost(s),0); }
 function ini(n)     { return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
 function fmtT(t)    { const [h,m]=t.split(":").map(Number); return m?`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`:`${h%12||12}${h>=12?"pm":"am"}`; }
 function fmtD(n)    { return "$"+n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,","); }
@@ -929,7 +930,7 @@ async function hydrateEmployeePortalFieldsFromSupabase(){
   }
 
   employees = data.map((r, idx)=>({
-    id: Number(r.id),
+    id: String(r.id),
     name: r.name || `Employee ${r.id}`,
     role: r.role || "staff",
     hourly_rate: Number.isFinite(Number(r.hourly_rate)) ? Number(r.hourly_rate) : 0,
@@ -981,7 +982,7 @@ function bindUnifiedGridEvents() {
     if (!actionEl) return;
     const action = actionEl.dataset.action;
     if (action === "add-shift") {
-      openAddShift(parseInt(actionEl.dataset.empId, 10), parseInt(actionEl.dataset.day, 10));
+      openAddShift(actionEl.dataset.empId, parseInt(actionEl.dataset.day, 10));
       return;
     }
     if (action === "edit-shift") {
@@ -998,7 +999,7 @@ function bindUnifiedGridEvents() {
     if (!USE_UNIFIED_GRID) return;
     const dayCell = e.target.closest(".ug-day-cell[data-emp-id][data-day]");
     if (!dayCell) return;
-    openAddShift(parseInt(dayCell.dataset.empId, 10), parseInt(dayCell.dataset.day, 10));
+    openAddShift(dayCell.dataset.empId, parseInt(dayCell.dataset.day, 10));
   });
 }
 
@@ -1040,7 +1041,7 @@ function renderUnifiedGrid() {
         </div>`;
 
       for(let d=0; d<7; d++){
-        const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
+        const cs=shifts.filter(s=>sameEmpId(s.empId,emp.id)&&s.day===d);
         html += `<div class="grid-cell ug-day-cell${ri%2?" alt":""}" data-emp-id="${emp.id}" data-day="${d}">
           ${cs.map(s=>`
             <div class="shift-block" data-role="${emp.role}" data-action="edit-shift" data-shift-id="${s.id}">
@@ -1101,8 +1102,8 @@ function renderGrid() {
   } else {
     employees.forEach((emp,ri)=>{
       for(let d=0;d<7;d++){
-        const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
-        html+=`<div class="grid-cell${ri%2?" alt":""}" ondblclick="openAddShift(${emp.id},${d})">
+        const cs=shifts.filter(s=>sameEmpId(s.empId,emp.id)&&s.day===d);
+        html+=`<div class="grid-cell${ri%2?" alt":""}" ondblclick="openAddShift('${emp.id}',${d})">
           <div class="shift-stack">
           ${cs.map(s=>`
             <div class="shift-block" data-role="${emp.role}" onclick="openEditShift(${s.id})">
@@ -1111,7 +1112,7 @@ function renderGrid() {
               <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
             </div>`).join("")}
           </div>
-          <button class="add-shift-btn" onclick="openAddShift(${emp.id},${d})">+</button>
+          <button class="add-shift-btn" onclick="openAddShift('${emp.id}',${d})">+</button>
         </div>`;
       }
     });
@@ -1153,20 +1154,20 @@ function renderDrawer() {
             <div class="staff-rate-wrap">
               <span class="rate-sym">$</span>
               <input class="rate-input" type="number" value="${e.hourly_rate||0}" min="0" step="0.5"
-                onchange="updateRate(${e.id},this.value)" title="Hourly rate">
+                onchange="updateRate('${e.id}',this.value)" title="Hourly rate">
               <span class="rate-sym">/hr</span>
             </div>
             <div class="staff-weekly">
               <div class="staff-weekly-amt">${fmtD(c)}</div>
               <div class="staff-weekly-label">this week</div>
             </div>
-            <button class="staff-remove" onclick="removeEmployee(${e.id})" title="Remove">×</button>
+            <button class="staff-remove" onclick="removeEmployee('${e.id}')" title="Remove">×</button>
           </div>
           <div class="staff-item-phone">
             <span class="phone-icon">📱</span>
             <input class="phone-input" type="tel" placeholder="+1 555 000 0000"
               value="${e.phone||""}"
-              onchange="updatePhone(${e.id},this.value)"
+              onchange="updatePhone('${e.id}',this.value)"
               title="Phone number for SMS notifications">
             <span class="phone-status ${hasPhone?"has-phone":"no-phone"}" id="phoneStatus_${e.id}">
               ${hasPhone?"✓ SMS ready":"no phone"}
@@ -1176,9 +1177,9 @@ function renderDrawer() {
             <span style="font-size:12px;color:var(--text-muted);min-width:130px">Employee Code (4 digits)</span>
             <input class="phone-input" style="max-width:110px" type="text" inputmode="numeric" maxlength="4" placeholder="1234"
               value="${e.employee_code||""}"
-              onchange="updateEmployeeCode(${e.id},this.value)">
-            <button class="btn btn-ghost" style="padding:4px 8px" onclick="generateEmployeeCodeFor(${e.id})">Generate</button>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.is_active===false?"":"checked"} onchange="updateEmployeeActive(${e.id},this.checked)">Active</label>
+              onchange="updateEmployeeCode('${e.id}',this.value)">
+            <button class="btn btn-ghost" style="padding:4px 8px" onclick="generateEmployeeCodeFor('${e.id}')">Generate</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.is_active===false?"":"checked"} onchange="updateEmployeeActive('${e.id}',this.checked)">Active</label>
           </div>
         </div>`;
       }).join("");
@@ -1226,11 +1227,11 @@ function removeEmployee(id){
   persist(); render();
 }
 function updateRate(id,val){
-  const e=employees.find(x=>x.id===id);
+  const e=employees.find(x=>String(x.id)===String(id));
   if(e){ e.hourly_rate=parseFloat(val)||0; persist(); saveEmployeeToSupabase(e).then((r)=>{ if(!r.ok && !r.skipped) showStaffSaveMessage(r.error?.message||"Could not save hourly rate", true); else showStaffSaveMessage("Hourly rate saved."); }); render(); }
 }
 function updatePhone(id,val){
-  const e=employees.find(x=>x.id===id);
+  const e=employees.find(x=>String(x.id)===String(id));
   if(e){
     e.phone=val.trim();
     persist();
@@ -1270,7 +1271,7 @@ async function saveEmployeeToSupabase(emp){
 
 async function updateEmployeeCode(id,val){
   const code=String(val||"").trim();
-  const e=employees.find(x=>x.id===id);
+  const e=employees.find(x=>String(x.id)===String(id));
   if(!e) return;
   if(code && !/^\d{4}$/.test(code)){
     showStaffSaveMessage("Employee code must be exactly 4 digits or blank.", true);
@@ -1298,7 +1299,7 @@ async function updateEmployeeCode(id,val){
   showStaffSaveMessage(`Saved employee_code=${e.employee_code||""} to Supabase for employeeId=${e.id}`);
 }
 async function generateEmployeeCodeFor(id){
-  const e=employees.find(x=>x.id===id);
+  const e=employees.find(x=>String(x.id)===String(id));
   if(!e) return;
   let attempts=0;
   let code=null;
@@ -1322,7 +1323,7 @@ async function generateEmployeeCodeFor(id){
   renderDrawer();
 }
 async function updateEmployeeActive(id,checked){
-  const e=employees.find(x=>x.id===id);
+  const e=employees.find(x=>String(x.id)===String(id));
   if(!e) return;
   const prev=e.is_active;
   e.is_active=!!checked;
@@ -1382,15 +1383,54 @@ function fillEmpSelect(selId){
     `<option value="${e.id}"${e.id===selId?" selected":""}>${e.name}</option>`
   ).join("");
 }
+async function saveShiftToSupabase(shift){
+  if(!window._supabaseClient || !currentOrgId) return { ok:false, skipped:true };
+  const ws=weekStart(weekOff);
+  const dayDate=new Date(ws); dayDate.setDate(ws.getDate()+Number(shift.day||0));
+  const [sh,sm]=String(shift.start).split(":").map(Number);
+  const [eh,em]=String(shift.end).split(":").map(Number);
+  const startTs=new Date(dayDate); startTs.setHours(sh||0, sm||0, 0, 0);
+  const endTs=new Date(dayDate); endTs.setHours(eh||0, em||0, 0, 0);
+
+  const payload={
+    employee_id: String(shift.empId),
+    org_id: String(currentOrgId),
+    start_ts: startTs.toISOString(),
+    end_ts: endTs.toISOString(),
+    notes: shift.note || null,
+  };
+
+  const q = window._supabaseClient.from("shifts");
+  const { error } = shift.dbId
+    ? await q.update(payload).eq("id", shift.dbId)
+    : await q.insert(payload).select("id").single().then(({data,error})=>{ if(!error && data?.id) shift.dbId=data.id; return {error}; });
+
+  if(error) return { ok:false, error };
+  return { ok:true };
+}
 function saveShift(){
-  const empId=parseInt(document.getElementById("mEmp").value);
+  const empId=String(document.getElementById("mEmp").value);
   const day=parseInt(document.getElementById("mDay").value);
   const start=document.getElementById("mStart").value;
   const end=document.getElementById("mEnd").value;
   const note=document.getElementById("mNote").value.trim();
   if(!start||!end||start>=end){ alert("End time must be after start time."); return; }
-  if(editSid){ Object.assign(shifts.find(x=>x.id===editSid),{empId,day,start,end,note}); }
-  else { shifts.push({id:nextSid++,empId,day,start,end,note}); }
+  let savedShift = null;
+  if(editSid){
+    savedShift = shifts.find(x=>x.id===editSid);
+    Object.assign(savedShift,{empId,day,start,end,note});
+  }
+  else {
+    savedShift = {id:nextSid++,empId,day,start,end,note};
+    shifts.push(savedShift);
+  }
+
+  saveShiftToSupabase(savedShift).then((r)=>{
+    if(!r.ok && !r.skipped){
+      showStaffSaveMessage(r.error?.message || "Failed to save shift", true);
+    }
+  });
+
   closeModal("shiftModal"); persist(); render();
 }
 function deleteShift(id){ shifts=shifts.filter(s=>s.id!==id); persist(); render(); }
@@ -1443,10 +1483,10 @@ function applySelectedTemplate(){
   let added=0, dup=0, missing=0;
   const missingNames=[];
   tpl.items.forEach(it=>{
-    const empId=parseInt(it.employeeId,10);
+    const empId=String(it.employeeId);
     const emp=employees.find(e=>e.id===empId);
     if(!emp){ missing++; if(!missingNames.includes(it.employeeId)) missingNames.push(it.employeeId); return; }
-    const exists=shifts.some(s=>s.empId===empId && s.day===it.dayIndex && s.start===it.startTime && s.end===it.endTime);
+    const exists=shifts.some(s=>sameEmpId(s.empId,empId) && s.day===it.dayIndex && s.start===it.startTime && s.end===it.endTime);
     if(exists){ dup++; return; }
     shifts.push({ id:nextSid++, empId, day:it.dayIndex, start:it.startTime, end:it.endTime, note:it.notes||"" });
     added++;
@@ -1484,7 +1524,7 @@ function buildScheduleMessage(emp) {
   const ws=weekStart(weekOff);
   const headerDate=`${DAYS[0]} ${ws.getMonth()+1}/${ws.getDate()}`;
   const empShifts=shifts
-    .filter(s=>s.empId===emp.id)
+    .filter(s=>sameEmpId(s.empId,emp.id))
     .sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
 
   const shortTime=(t)=>{
