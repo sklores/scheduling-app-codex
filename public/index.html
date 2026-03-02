@@ -828,6 +828,11 @@ function loadData() {
     shifts    = JSON.parse(localStorage.getItem("sh_shifts")) || seed().shifts;
     templates = JSON.parse(localStorage.getItem("scheduleTemplates")) || [];
   } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; templates=[]; }
+  employees = (employees || []).map((e) => ({
+    ...e,
+    isActive: e.isActive !== undefined ? !!e.isActive : (e.is_active !== undefined ? !!e.is_active : true),
+    employeeCode: e.employeeCode !== undefined ? String(e.employeeCode || "") : String(e.employee_code || ""),
+  }));
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
   window.__BOOT_EMP_COUNT = employees.length;
@@ -1203,7 +1208,7 @@ async function saveEmployeePortalFieldsToSupabase(emp){
   if (!window._supabaseClient || !emp || emp.id == null) return { ok:false, skipped:true };
   const payload = {
     employee_code: emp.employeeCode || null,
-    is_active: emp.isActive !== false,
+    is_active: !!(emp.isActive !== undefined ? emp.isActive : emp.is_active),
   };
   const { error } = await window._supabaseClient
     .from("employees")
@@ -1282,7 +1287,7 @@ async function updateEmployeeActive(id,checked){
     e.isActive=prev;
     persist();
     renderDrawer();
-    flash("Could not save active status");
+    flash(result?.error?.message || "Could not save active status");
   }
 }
 
