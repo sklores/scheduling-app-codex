@@ -10,8 +10,9 @@ function getWeekRange() {
   const start = d;
   const end = new Date(start);
   end.setUTCDate(start.getUTCDate() + 6);
-  const toISODate = (x) => x.toISOString().slice(0, 10);
-  return { start: toISODate(start), end: toISODate(end) };
+  const toISO = (x) => x.toISOString();
+  end.setUTCHours(23, 59, 59, 999);
+  return { start: toISO(start), end: toISO(end) };
 }
 
 module.exports = async function employeeScheduleHandler(req, res) {
@@ -41,12 +42,12 @@ module.exports = async function employeeScheduleHandler(req, res) {
 
   try {
     const query = [
-      "select=date,start_time,end_time,notes",
+      "select=id,start_time,end_time,notes",
       `employee_id=eq.${encodeURIComponent(payload.employeeId)}`,
       `org_id=eq.${encodeURIComponent(payload.orgId)}`,
-      `date=gte.${start}`,
-      `date=lte.${end}`,
-      "order=date.asc,start_time.asc",
+      `start_time=gte.${encodeURIComponent(start)}` ,
+      `start_time=lte.${encodeURIComponent(end)}` ,
+      "order=start_time.asc",
     ].join("&");
 
     const shifts = await supabaseFetch(`/rest/v1/shifts?${query}`);

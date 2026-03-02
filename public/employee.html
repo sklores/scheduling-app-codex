@@ -45,7 +45,14 @@ function loginView(message="") {
 
 function scheduleView(data) {
   const shifts = Array.isArray(data.shifts) ? data.shifts : [];
-  const renderShift = (s) => `<div class="shift"><div><strong>${escHtml(s.date)}</strong></div><div>${escHtml(s.start_time)} - ${escHtml(s.end_time)}</div>${s.notes?`<div class="muted">${escHtml(s.notes)}</div>`:""}</div>`;
+  const renderShift = (s) => {
+    const start = new Date(s.start_time);
+    const end = new Date(s.end_time);
+    const dayLabel = isNaN(start.getTime()) ? "Invalid date" : start.toLocaleDateString();
+    const startLabel = isNaN(start.getTime()) ? "--:--" : start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const endLabel = isNaN(end.getTime()) ? "--:--" : end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return `<div class="shift"><div><strong>${escHtml(dayLabel)}</strong></div><div>${escHtml(startLabel)} - ${escHtml(endLabel)}</div>${s.notes?`<div class="muted">${escHtml(s.notes)}</div>`:""}</div>`;
+  };
 
   document.getElementById("app").innerHTML = `
     <div class="card">
