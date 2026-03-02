@@ -65,6 +65,7 @@ Set these in **Vercel Project → Settings → Environment Variables**:
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_FROM_NUMBER`
 - `EMPLOYEE_PORTAL_SECRET` (required for `/employee.html` login token signing)
+- `OWNER_PASSWORD` (required for owner login via `/#owner`)
 
 The frontend calls `/api/send-schedule`, and Twilio credentials are only read inside the serverless function (`api/send-schedule.js`).
 Employee portal URL: `/employee.html`.
@@ -95,3 +96,11 @@ create index if not exists idx_employees_employee_code on public.employees (empl
 Employee portal URL: `/employee.html`
 
 Required employee auth secret: `EMPLOYEE_PORTAL_SECRET`.
+
+
+## Landing role selector
+
+- `/` shows role buttons: Employee / Manager / Owner
+- Employee route: `/employee.html`
+- Manager route: `/#manager`
+- Owner route: `/#owner` (password checked by `POST /api/owner-login`)

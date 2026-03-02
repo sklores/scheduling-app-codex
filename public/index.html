@@ -199,6 +199,23 @@
 </style>
 </head>
 <body>
+<div id="landingGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1300;align-items:center;justify-content:center;padding:24px">
+  <div style="display:flex;flex-direction:column;gap:16px;width:100%;max-width:360px">
+    <button class="btn btn-primary" style="padding:16px 18px;font-size:20px" onclick="goRole('employee')">Employee</button>
+    <button class="btn btn-ghost" style="padding:16px 18px;font-size:20px;background:var(--surface)" onclick="goRole('manager')">Manager</button>
+    <button class="btn btn-ghost" style="padding:16px 18px;font-size:20px;background:var(--surface)" onclick="goRole('owner')">Owner</button>
+  </div>
+</div>
+
+<div id="ownerGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1250;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px">
+    <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:8px">Owner sign in</div>
+    <div class="form-group" style="margin-bottom:10px"><label>Password</label><input id="ownerPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-primary" id="ownerLoginBtn" style="width:100%">Enter</button>
+    <div id="ownerMsg" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+  </div>
+</div>
+
 <div id="loginGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1200;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px">
     <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:8px">Sign in</div>
@@ -512,6 +529,96 @@ async function ensureManagerProfileAndRole() {
   return profile;
 }
 
+function hideAllAuthSurfaces() {
+  document.getElementById("landingGate").style.display = "none";
+  document.getElementById("ownerGate").style.display = "none";
+  document.getElementById("loginGate").style.display = "none";
+}
+
+function goRole(role) {
+  if (role === "employee") {
+    window.location.href = "/employee.html";
+    return;
+  }
+  if (role === "manager") {
+    window.location.hash = "#manager";
+    return;
+  }
+  if (role === "owner") {
+    window.location.hash = "#owner";
+  }
+}
+
+function showLandingGate() {
+  hideAllAuthSurfaces();
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("landingGate").style.display = "flex";
+}
+
+function showOwnerGate(msg="") {
+  hideAllAuthSurfaces();
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("ownerGate").style.display = "flex";
+  document.getElementById("ownerMsg").textContent = msg;
+}
+
+async function handleOwnerLogin() {
+  const password = document.getElementById("ownerPassword")?.value || "";
+  if (!password) {
+    showOwnerGate("Enter owner password.");
+    return;
+  }
+  const res = await fetch("/api/owner-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    showOwnerGate(data.error || "Invalid owner password.");
+    return;
+  }
+  localStorage.setItem("owner_mode", "1");
+  showAppShell();
+}
+
+let managerAuthInitialized = false;
+let managerDefaultLoginMessage = "";
+
+function routeByHash() {
+  const hash = window.location.hash || "";
+  if (!hash) {
+    showLandingGate();
+    return;
+  }
+
+  if (hash === "#manager") {
+    if (!window._supabaseClient) {
+      showFatal(new Error("Manager auth unavailable. Check Supabase config/env vars."));
+      return;
+    }
+    hideAllAuthSurfaces();
+    if (!managerAuthInitialized) {
+      managerAuthInitialized = true;
+      initAuthGate(managerDefaultLoginMessage).catch(showFatal);
+    } else {
+      showLoginGate(managerDefaultLoginMessage);
+    }
+    return;
+  }
+
+  if (hash === "#owner") {
+    if (localStorage.getItem("owner_mode") === "1") {
+      showAppShell();
+      return;
+    }
+    showOwnerGate();
+    return;
+  }
+
+  showLandingGate();
+}
+
 
 function showLoginGate(msg="") {
   document.getElementById("loginGate").style.display = "flex";
@@ -520,7 +627,7 @@ function showLoginGate(msg="") {
 }
 
 function showAppShell() {
-  document.getElementById("loginGate").style.display = "none";
+  hideAllAuthSurfaces();
   document.getElementById("appShell").style.display = "block";
   if (!appBooted) {
     appBooted = true;
@@ -545,6 +652,13 @@ function showFatal(err) {
 async function initAuthGate(defaultLoginMessage = "") {
   document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
     e.preventDefault();
+    if (localStorage.getItem("owner_mode") === "1") {
+      localStorage.removeItem("owner_mode");
+      appBooted = false;
+      window.location.hash = "";
+      routeByHash();
+      return;
+    }
     await window._supabaseClient.auth.signOut();
     window.location.reload();
   });
@@ -1548,9 +1662,19 @@ function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
 
   if (callbackState.hasAuthParams || callbackState.authError) {
     history.replaceState({}, document.title, callbackState.cleanPath);
+    if (!window.location.hash) {
+      window.location.hash = "#manager";
+    }
   }
 
-  await initAuthGate(loginMessage);
+  managerDefaultLoginMessage = loginMessage;
+
+  document.getElementById("ownerLoginBtn")?.addEventListener("click", handleOwnerLogin);
+  document.getElementById("ownerPassword")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleOwnerLogin();
+  });
+  window.addEventListener("hashchange", routeByHash);
+  routeByHash();
 })().catch(showFatal);
 </script>
 </body>
