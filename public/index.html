@@ -13,6 +13,7 @@
     --accent: #c84b2f; --accent-light: #fde8e3;
     --green: #2d5a27; --green-light: #e8f5e3;
     --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+    --rowH: 84px; --headH: 64px; --staffColW: 200px;
   }
   body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
@@ -46,9 +47,11 @@
 
   /* ── App Body ── */
   .app-body { display: flex; height: calc(100vh - 52px - 49px); overflow: hidden; }
+  .app-body.unified .sidebar { display: none; }
+  .app-body.unified .grid-wrap { flex: 1; }
   .sidebar { width: 200px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
-  .sidebar-header { padding: 10px 14px; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
-  .employee-row { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+  .sidebar-header { padding: 10px 14px; height: var(--headH); display: flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); box-sizing: border-box; }
+  .employee-row { padding: 10px 14px; height: var(--rowH); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.1s; box-sizing: border-box; }
   .employee-row:hover { background: var(--bg); }
   .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; color: #fff; }
   .emp-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -59,18 +62,24 @@
   /* ── Grid ── */
   .grid-wrap { flex: 1; overflow: auto; }
   .schedule-grid { min-width: 700px; display: grid; grid-template-columns: repeat(7, 1fr); }
-  .day-header { padding: 8px 10px; text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .schedule-grid.unified { min-width: 900px; grid-template-columns: var(--staffColW) repeat(7, minmax(120px, 1fr)); grid-template-rows: var(--headH); grid-auto-rows: var(--rowH); }
+  .ug-head { height: var(--headH); }
+  .ug-staff-head { position: sticky; left: 0; z-index: 11; }
+  .ug-staff-cell { position: sticky; left: 0; z-index: 9; background: var(--surface); }
+  .ug-day-cell { min-height: var(--rowH); }
+  .day-header { padding: 8px 10px; height: var(--headH); text-align: center; border-right: 1px solid var(--border); border-bottom: 2px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; box-sizing: border-box; }
   .day-header:last-child { border-right: none; }
   .day-name { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
   .day-date { font-size: 18px; font-weight: 600; line-height: 1.2; }
   .day-header.today .day-date { color: var(--accent); }
   .day-total { font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 72px; padding: 6px; background: var(--surface); transition: background 0.1s; }
+  .grid-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); height: var(--rowH); padding: 6px; background: var(--surface); transition: background 0.1s; box-sizing: border-box; overflow: hidden; }
   .grid-cell:last-child { border-right: none; }
   .grid-cell:hover { background: #fafaf8; }
   .grid-cell.alt { background: #faf9f6; }
   .grid-cell.alt:hover { background: #f3f1ec; }
-  .shift-block { background: #1a1916; color: #fff; border-radius: 3px; padding: 5px 8px; font-size: 12px; cursor: pointer; position: relative; margin-bottom: 3px; transition: opacity 0.15s; }
+  .shift-stack { display: flex; flex-direction: column; gap: 6px; max-height: calc(var(--rowH) - 24px); overflow: auto; padding-right: 2px; }
+  .shift-block { background: #1a1916; color: #fff; border-radius: 3px; padding: 5px 8px; font-size: 12px; cursor: pointer; position: relative; transition: opacity 0.15s; min-height: 30px; }
   .shift-block:hover { opacity: 0.85; }
   .shift-block .shift-time { font-family: var(--mono); font-size: 10px; color: #aaa; }
   .shift-block .del-btn { position: absolute; top: 3px; right: 5px; background: none; border: none; color: #666; cursor: pointer; font-size: 12px; opacity: 0; transition: opacity 0.1s; padding: 0; line-height: 1; }
@@ -86,8 +95,8 @@
   .add-shift-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
   /* ── Staff Drawer ── */
-  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
-  .drawer-overlay.open { display: block; }
+  .drawer-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 300; }
+  .drawer-overlay.open { display: block; pointer-events: auto; }
   .drawer { position: fixed; top: 0; right: -520px; width: 520px; height: 100vh; background: var(--surface); box-shadow: -8px 0 40px rgba(0,0,0,0.15); z-index: 301; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1); }
   .drawer.open { right: 0; }
   .drawer-header { background: var(--text); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
@@ -137,8 +146,8 @@
   .drawer-total-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
 
   /* ── Shift Modal ── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
-  .modal-overlay.open { display: flex; }
+  .modal-overlay { display: none; pointer-events: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 400; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; pointer-events: auto; }
   .modal { background: var(--surface); border-radius: 4px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
   .modal-header { padding: 16px 20px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
   .modal-header h2 { font-size: 14px; font-weight: 600; font-family: var(--mono); }
@@ -190,7 +199,41 @@
 </style>
 </head>
 <body>
+<div id="landingGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1300;align-items:center;justify-content:center;padding:24px">
+  <div style="display:flex;flex-direction:column;gap:16px;width:100%;max-width:360px">
+    <button class="btn btn-primary" style="padding:16px 18px;font-size:20px" onclick="goRole('employee')">Employee</button>
+    <button class="btn btn-ghost" style="padding:16px 18px;font-size:20px;background:var(--surface)" onclick="goRole('manager')">Manager</button>
+    <button class="btn btn-ghost" style="padding:16px 18px;font-size:20px;background:var(--surface)" onclick="goRole('owner')">Owner</button>
+  </div>
+</div>
 
+<div id="ownerGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1250;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px">
+    <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:8px">Owner sign in</div>
+    <div class="form-group" style="margin-bottom:10px"><label>Password</label><input id="ownerPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-primary" id="ownerLoginBtn" style="width:100%">Enter</button>
+    <div id="ownerMsg" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+  </div>
+</div>
+
+<div id="loginGate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1200;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px">
+    <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:8px">Sign in</div>
+    <div id="loginSubtitle" style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Use your email to receive a magic link.</div>
+    <div class="form-group" style="margin-bottom:10px"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com"></div>
+    <div class="form-group" id="passwordFieldWrap" style="margin-bottom:10px;display:none"><label>Password</label><input id="loginPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-primary" id="sendMagicLinkBtn" style="width:100%">Send magic link</button>
+    <div id="passwordActions" style="display:none;gap:8px">
+      <button class="btn btn-primary" id="passwordSignInBtn" style="flex:1">Sign In</button>
+      <button class="btn btn-ghost" id="passwordSignUpBtn" style="flex:1">Create Account</button>
+    </div>
+    <a href="#" id="loginModeToggle" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--accent);text-decoration:none">Use password instead</a>
+    <div style="margin-top:10px"><a href="/employee.html" style="font-size:12px;color:var(--accent);text-decoration:none">Employees: View your schedule</a></div>
+    <div id="loginMsg" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+  </div>
+</div>
+
+<div id="appShell" style="display:none">
 <header>
   <div class="logo">sh<span>i</span>ft</div>
   <div class="week-nav">
@@ -205,12 +248,15 @@
     <button class="publish-btn" id="publishBtn" onclick="openPublishModal()">
       <span class="send-icon">📤</span> Publish Schedule
     </button>
+    <a href="#" id="signOutLink" style="color:#ccc;font-family:var(--mono);font-size:12px;text-decoration:none">Sign Out</a>
   </div>
 </header>
 
 <div class="toolbar">
   <button class="btn btn-primary" onclick="openAddShift(null,null)">+ Add Shift</button>
   <button class="btn btn-ghost" onclick="clearWeek()">Clear Week</button>
+  <button class="btn btn-ghost" onclick="openSaveTemplateModal()">Save as Template</button>
+  <button class="btn btn-ghost" onclick="openApplyTemplateModal()">Apply Template</button>
   <div class="stat-pill">
     <div class="stat"><div class="stat-num" id="statCost">$0</div><div class="stat-label">Labor Cost</div></div>
     <div class="stat"><div class="stat-num" id="statHours">0h</div><div class="stat-label">Hours</div></div>
@@ -257,6 +303,11 @@
         <button class="btn btn-primary" onclick="addEmployee()" style="flex-shrink:0;align-self:flex-end">Add</button>
       </div>
     </div>
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);background:#faf9f6">
+      <h3 style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px">Templates</h3>
+      <div id="templateList"></div>
+    </div>
+    <div id="staffSaveMsg" style="display:none;margin:10px 20px;padding:8px 10px;border-radius:4px;font-size:12px"></div>
     <div id="staffList"></div>
   </div>
   <div class="drawer-footer">
@@ -308,19 +359,467 @@
   </div>
 </div>
 
+
+<!-- Save Template Modal -->
+<div class="modal-overlay" id="saveTemplateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h2>Save Template</h2>
+      <button class="modal-close" onclick="closeModal('saveTemplateModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Template Name</label><input type="text" id="templateNameInput" placeholder="Standard Week"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('saveTemplateModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTemplateFromCurrentWeek()">Save Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- Apply Template Modal -->
+<div class="modal-overlay" id="applyTemplateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h2>Apply Template</h2>
+      <button class="modal-close" onclick="closeModal('applyTemplateModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Template</label><select id="applyTemplateSelect"></select></div>
+      <div id="applyTemplateInfo" style="font-size:12px;color:var(--text-muted)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('applyTemplateModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="applySelectedTemplate()">Apply</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">✓ Saved</div>
+</div>
 
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ─────────────────────────────────────────────
-// CONFIG — set this to your Vercel deployment URL after deploying
-// e.g. "https://your-app.vercel.app"
-// Leave empty to test locally with a mock response
-const API_BASE = "";
-// ─────────────────────────────────────────────
-
 const COLORS = ["#1a3a5c","#4a3060","#2d5a27","#5a2d27","#4a4020","#1a4a4a","#5a4a1a","#2d4a5a"];
 const DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TIME_STEP_MINUTES = 30;
+const PERF_INIT_LOGS = true;
+const USE_UNIFIED_GRID = false;
+
+let appBooted = false;
+window._supabaseClient = null;
+
+const OTP_COOLDOWN_SECONDS = 60;
+let otpCooldownRemaining = 0;
+let otpCooldownTimer = null;
+let managerLoginMode = "magic";
+
+function updateLoginModeUI() {
+  const isPassword = managerLoginMode === "password";
+  const subtitle = document.getElementById("loginSubtitle");
+  const passwordWrap = document.getElementById("passwordFieldWrap");
+  const magicBtn = document.getElementById("sendMagicLinkBtn");
+  const passwordActions = document.getElementById("passwordActions");
+  const toggle = document.getElementById("loginModeToggle");
+
+  if (subtitle) subtitle.textContent = isPassword
+    ? "Sign in with your email and password."
+    : "Use your email to receive a magic link.";
+  if (passwordWrap) passwordWrap.style.display = isPassword ? "block" : "none";
+  if (magicBtn) magicBtn.style.display = isPassword ? "none" : "block";
+  if (passwordActions) passwordActions.style.display = isPassword ? "flex" : "none";
+  if (toggle) toggle.textContent = isPassword ? "Use magic link instead" : "Use password instead";
+}
+
+function setSendMagicLinkButtonState(secondsLeft) {
+  const btn = document.getElementById("sendMagicLinkBtn");
+  if (!btn) return;
+  if (secondsLeft > 0) {
+    btn.disabled = true;
+    btn.textContent = `Send magic link (${secondsLeft}s)`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Send magic link";
+  }
+}
+
+function startOtpCooldown(seconds = OTP_COOLDOWN_SECONDS) {
+  otpCooldownRemaining = seconds;
+  setSendMagicLinkButtonState(otpCooldownRemaining);
+  if (otpCooldownTimer) clearInterval(otpCooldownTimer);
+  otpCooldownTimer = setInterval(() => {
+    otpCooldownRemaining = Math.max(0, otpCooldownRemaining - 1);
+    setSendMagicLinkButtonState(otpCooldownRemaining);
+    if (otpCooldownRemaining === 0) {
+      clearInterval(otpCooldownTimer);
+      otpCooldownTimer = null;
+    }
+  }, 1000);
+}
+
+function parseAuthCallbackState() {
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams((url.hash || "").startsWith("#") ? url.hash.slice(1) : "");
+  const query = url.searchParams;
+
+  const hasCode = !!query.get("code");
+  const hasMagicLinkType = query.get("type") === "magiclink" || hashParams.get("type") === "magiclink";
+  const hasTokenPair = !!(query.get("access_token") || hashParams.get("access_token"))
+    || !!(query.get("refresh_token") || hashParams.get("refresh_token"));
+
+  const authError = query.get("error") || hashParams.get("error");
+
+  return {
+    hasCode,
+    hasAuthParams: hasCode || hasMagicLinkType || hasTokenPair,
+    authError,
+    cleanPath: `${url.origin}${url.pathname}`,
+  };
+}
+
+async function ensureManagerProfileAndRole() {
+  const { data: userData, error: userError } = await window._supabaseClient.auth.getUser();
+  if (userError || !userData || !userData.user) {
+    throw new Error(userError?.message || "Unable to load authenticated user profile.");
+  }
+
+  const user = userData.user;
+  const authUid = user.id;
+
+  const profileRes = await window._supabaseClient
+    .from("profiles")
+    .select("user_id, org_id, role, display_name")
+    .eq("user_id", authUid)
+    .maybeSingle();
+
+  let profile = profileRes.data;
+  const profileErr = profileRes.error;
+  const status = profileRes.status;
+
+  if (!profile && (!profileErr || status === 406)) {
+    const bootRes = await fetch("/api/bootstrap-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: authUid, email: user.email || "" }),
+    });
+
+    const bootData = await bootRes.json().catch(() => ({}));
+    if (!bootRes.ok || !bootData.profile) {
+      throw new Error(bootData.error || "Failed to bootstrap manager org/profile via serverless endpoint.");
+    }
+
+    profile = bootData.profile;
+  }
+
+  if (!profile && profileErr) {
+    throw new Error(profileErr.message || "Unable to load manager profile.");
+  }
+
+  if (!profile) {
+    throw new Error("Manager profile is missing after bootstrap.");
+  }
+
+  currentOrgId = profile.org_id || null;
+
+  if (profile.role === "employee") {
+    window.location.href = "/employee.html";
+    return { redirected: true };
+  }
+
+  return profile;
+}
+
+function hideAllAuthSurfaces() {
+  document.getElementById("landingGate").style.display = "none";
+  document.getElementById("ownerGate").style.display = "none";
+  document.getElementById("loginGate").style.display = "none";
+}
+
+function goRole(role) {
+  if (role === "employee") {
+    window.location.href = "/employee.html";
+    return;
+  }
+  if (role === "manager") {
+    window.location.hash = "#manager";
+    return;
+  }
+  if (role === "owner") {
+    window.location.hash = "#owner";
+  }
+}
+
+function showLandingGate() {
+  hideAllAuthSurfaces();
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("landingGate").style.display = "flex";
+}
+
+function showOwnerGate(msg="") {
+  hideAllAuthSurfaces();
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("ownerGate").style.display = "flex";
+  document.getElementById("ownerMsg").textContent = msg;
+}
+
+async function handleOwnerLogin() {
+  const password = document.getElementById("ownerPassword")?.value || "";
+  if (!password) {
+    showOwnerGate("Enter owner password.");
+    return;
+  }
+  const res = await fetch("/api/owner-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    showOwnerGate(data.error || "Invalid owner password.");
+    return;
+  }
+  localStorage.setItem("owner_mode", "1");
+  showAppShell();
+}
+
+let managerAuthInitialized = false;
+let managerDefaultLoginMessage = "";
+let currentOrgId = null;
+
+function routeByHash() {
+  const hash = window.location.hash || "";
+  if (!hash) {
+    showLandingGate();
+    return;
+  }
+
+  if (hash === "#manager") {
+    if (!window._supabaseClient) {
+      showFatal(new Error("Manager auth unavailable. Check Supabase config/env vars."));
+      return;
+    }
+    hideAllAuthSurfaces();
+    if (!managerAuthInitialized) {
+      managerAuthInitialized = true;
+      initAuthGate(managerDefaultLoginMessage).catch(showFatal);
+    } else {
+      showLoginGate(managerDefaultLoginMessage);
+    }
+    return;
+  }
+
+  if (hash === "#owner") {
+    if (localStorage.getItem("owner_mode") === "1") {
+      showAppShell();
+      return;
+    }
+    showOwnerGate();
+    return;
+  }
+
+  showLandingGate();
+}
+
+
+function showLoginGate(msg="") {
+  document.getElementById("loginGate").style.display = "flex";
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("loginMsg").textContent = msg;
+}
+
+function showAppShell() {
+  hideAllAuthSurfaces();
+  document.getElementById("appShell").style.display = "block";
+  if (!appBooted) {
+    appBooted = true;
+    bootInitialRender();
+  }
+}
+
+function showFatal(err) {
+  const message = err && err.message ? err.message : String(err || "Unknown error");
+  const stack = err && err.stack ? err.stack : "No stack available.";
+  document.body.innerHTML = `
+    <div style="position:fixed;inset:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;font-family:var(--sans)">
+      <div style="max-width:760px;width:100%;background:#1c1c1c;border:1px solid #333;border-radius:8px;padding:20px">
+        <h1 style="font-family:var(--mono);font-size:18px;margin-bottom:10px">Boot error</h1>
+        <p style="color:#ddd;margin-bottom:10px;line-height:1.5">${escHtml(message)}</p>
+        <pre style="white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;background:#141414;border:1px solid #2b2b2b;border-radius:4px;padding:10px;color:#c9c9c9;margin-bottom:12px">${escHtml(stack)}</pre>
+        <p style="color:#aaa;line-height:1.5">GET /api/supabase-config is working, so this is a frontend boot crash.</p>
+      </div>
+    </div>`;
+}
+
+async function initAuthGate(defaultLoginMessage = "") {
+  document.getElementById("signOutLink")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (localStorage.getItem("owner_mode") === "1") {
+      localStorage.removeItem("owner_mode");
+      appBooted = false;
+      window.location.hash = "";
+      routeByHash();
+      return;
+    }
+    await window._supabaseClient.auth.signOut();
+    window.location.reload();
+  });
+
+  setSendMagicLinkButtonState(otpCooldownRemaining);
+  updateLoginModeUI();
+
+  document.getElementById("loginModeToggle")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    managerLoginMode = managerLoginMode === "magic" ? "password" : "magic";
+    updateLoginModeUI();
+  });
+
+  document.getElementById("sendMagicLinkBtn")?.addEventListener("click", async () => {
+    if (otpCooldownRemaining > 0) return;
+    const email = document.getElementById("loginEmail").value.trim();
+    if (!email) {
+      showLoginGate("Enter an email address.");
+      return;
+    }
+
+    startOtpCooldown();
+    const { error } = await window._supabaseClient.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+
+    if (error) {
+      showLoginGate(error.message);
+      return;
+    }
+
+    showLoginGate("Check your email.");
+  });
+
+  document.getElementById("passwordSignInBtn")?.addEventListener("click", async () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    if (!email || !password) {
+      showLoginGate("Enter email and password.");
+      return;
+    }
+    const { error } = await window._supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      showLoginGate(error.message);
+      return;
+    }
+    showLoginGate("Signed in. Loading…");
+  });
+
+  document.getElementById("passwordSignUpBtn")?.addEventListener("click", async () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    if (!email || !password) {
+      showLoginGate("Enter email and password.");
+      return;
+    }
+    const { error } = await window._supabaseClient.auth.signUp({ email, password });
+    if (error) {
+      showLoginGate(error.message);
+      return;
+    }
+    showLoginGate("Account created. Check your email if confirmation is required.");
+  });
+
+  const { data } = await window._supabaseClient.auth.getSession();
+  if (data && data.session) {
+    const roleCheck = await ensureManagerProfileAndRole();
+    if (!roleCheck?.redirected) { await hydrateEmployeePortalFieldsFromSupabase(); showAppShell(); }
+  } else {
+    showLoginGate(defaultLoginMessage);
+  }
+
+  window._supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (!session) return;
+    try {
+      const roleCheck = await ensureManagerProfileAndRole();
+      if (!roleCheck?.redirected) { await hydrateEmployeePortalFieldsFromSupabase(); showAppShell(); }
+    } catch (err) {
+      showFatal(new Error(`Manager role bootstrap failed: ${err?.message || err}`));
+    }
+  });
+}
+
+window.__SAFE_MODE = false;
+window.__firstInteractive = false;
+window.__syncInProgress = false;
+window.__LAYOUT_SYNC_DISABLED = false;
+
+function mark() {}
+function updateBootDiag() {}
+
+function perfLog(label, startedAt) {
+  if (!PERF_INIT_LOGS) return;
+  const ms = (performance.now() - startedAt).toFixed(2);
+  console.log(`[perf] ${label}: ${ms}ms`);
+}
+
+function warnSlowPhase(name, startedAt) {
+  const elapsed = performance.now() - startedAt;
+  if (elapsed > 200) {
+    console.warn(`[perf] slow phase detected: ${name} (${elapsed.toFixed(2)}ms)`);
+  }
+}
+
+function logPerfSummaryIfSlow() {}
+
+function isSchedulerSurface(el) {
+  if (!el) return false;
+  return !!el.closest("header, .toolbar, .app-body, .sidebar, .grid-wrap, .schedule-grid, .drawer, .modal");
+}
+
+function describeElement(el) {
+  if (!el) return "none";
+  const cs = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return `${el.tagName.toLowerCase()}#${el.id||""}.${(el.className||"").toString().trim().replace(/\s+/g,".")} pe=${cs.pointerEvents} pos=${cs.position} z=${cs.zIndex} op=${cs.opacity} vis=${cs.visibility} rect=${Math.round(rect.width)}x${Math.round(rect.height)}`;
+}
+
+function probeCenterElement() {
+  const x = Math.round(window.innerWidth * 0.5);
+  const y = Math.round(window.innerHeight * 0.5);
+  return document.elementFromPoint(x, y);
+}
+
+function unblockInvisibleOverlays() {
+  const changed = [];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const all = Array.from(document.body.querySelectorAll("*"));
+
+  all.forEach((el) => {
+    const cs = getComputedStyle(el);
+    if (!["fixed", "absolute"].includes(cs.position)) return;
+    if (cs.pointerEvents === "none") return;
+    const rect = el.getBoundingClientRect();
+    const coversMost = rect.width >= vw * 0.85 && rect.height >= vh * 0.85;
+    if (!coversMost) return;
+    const looksOverlay = el.className.toString().includes("overlay") || Number(cs.zIndex || 0) >= 200 || Number(cs.opacity) < 0.2;
+    if (!looksOverlay) return;
+    el.style.pointerEvents = "none";
+    el.style.display = "none";
+    changed.push(describeElement(el));
+  });
+
+  return changed;
+}
+
+function runOverlayBlockerWatchdog() {
+  const topEl = probeCenterElement();
+  if (!isSchedulerSurface(topEl)) {
+    const changed = unblockInvisibleOverlays();
+    if (changed.length) {
+      console.warn("[ui] Removed blocking overlay layer(s)", changed);
+    }
+  }
+}
 
 // ── Persist ──
 function loadData() {
@@ -329,24 +828,25 @@ function loadData() {
       localStorage.clear();
       localStorage.setItem("sh_version", "3");
     }
-    employees = JSON.parse(localStorage.getItem("sh_emp"))    || seed().employees;
+    employees = seed().employees;
     shifts    = JSON.parse(localStorage.getItem("sh_shifts")) || seed().shifts;
-  } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; }
+    templates = JSON.parse(localStorage.getItem("scheduleTemplates")) || [];
+  } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; templates=[]; }
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
 }
 function persist() {
-  localStorage.setItem("sh_emp",    JSON.stringify(employees));
   localStorage.setItem("sh_shifts", JSON.stringify(shifts));
+  localStorage.setItem("scheduleTemplates", JSON.stringify(templates));
   flash("✓ Saved");
 }
 function seed() {
   return {
     employees: [
-      { id:1, name:"Alex Rivera",  role:"manager", rate:22, phone:"+15550001111", color:COLORS[0] },
-      { id:2, name:"Sam Chen",     role:"server",  rate:16, phone:"+15550002222", color:COLORS[1] },
-      { id:3, name:"Jordan Kim",   role:"cashier", rate:15, phone:"",             color:COLORS[2] },
-      { id:4, name:"Casey Patel",  role:"cook",    rate:18, phone:"+15550004444", color:COLORS[3] },
+      { id:1, name:"Alex Rivera",  role:"manager", hourly_rate:22, phone:"+15550001111", color:COLORS[0] },
+      { id:2, name:"Sam Chen",     role:"server",  hourly_rate:16, phone:"+15550002222", color:COLORS[1] },
+      { id:3, name:"Jordan Kim",   role:"cashier", hourly_rate:15, phone:"",             color:COLORS[2] },
+      { id:4, name:"Casey Patel",  role:"cook",    hourly_rate:18, phone:"+15550004444", color:COLORS[3] },
     ],
     shifts: [
       { id:1, empId:1, day:0, start:"08:00", end:"16:00", note:"Opening" },
@@ -358,12 +858,11 @@ function seed() {
   };
 }
 
-let employees=[], shifts=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
-loadData();
+let employees=[], shifts=[], templates=[], nextEid=1, nextSid=1, weekOff=0, editSid=null;
 
 // ── Helpers ──
 function hrs(s)     { const [hs,ms]=s.start.split(":").map(Number),[he,me]=s.end.split(":").map(Number); return Math.max(0,(he+me/60)-(hs+ms/60)); }
-function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.rate||0) : 0; }
+function cost(s)    { const e=employees.find(x=>x.id===s.empId); return e ? hrs(s)*(e.hourly_rate||0) : 0; }
 function empHrs(id) { return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+hrs(s),0); }
 function empCost(id){ return shifts.filter(s=>s.empId===id).reduce((a,s)=>a+cost(s),0); }
 function ini(n)     { return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
@@ -374,9 +873,23 @@ function weekStart(off=0) {
   d.setDate(d.getDate()+diff+off*7); d.setHours(0,0,0,0); return d;
 }
 function cleanPhone(p) {
-  // strip spaces/dashes, ensure + prefix for Twilio
-  const digits = p.replace(/[^\d+]/g,"");
-  return digits.startsWith("+") ? digits : "+1"+digits.replace(/\D/g,"");
+  const raw = (p||"").trim();
+  if(!raw) return null;
+  if(raw.startsWith("+")) return /^\+\d{10,15}$/.test(raw) ? raw : null;
+  const digits = raw.replace(/\D/g,"");
+  if(digits.length===10) return `+1${digits}`;
+  return null;
+}
+
+function generateEmployeeCode(){
+  return String(Math.floor(1000 + Math.random()*9000));
+}
+function generateUniqueEmployeeCode(){
+  for(let i=0;i<50;i++){
+    const code=generateEmployeeCode();
+    if(!employees.some(e=>String(e.employee_code||"")===code)) return code;
+  }
+  return null;
 }
 
 // ── Toast ──
@@ -385,8 +898,53 @@ function flash(msg="✓ Saved") {
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1800);
 }
 
+function showStaffSaveMessage(msg="", isError=false){
+  const el=document.getElementById("staffSaveMsg");
+  if(!el) return;
+  if(!msg){
+    el.style.display="none";
+    el.textContent="";
+    return;
+  }
+  el.style.display="block";
+  el.textContent=msg;
+  el.style.background=isError?"#fff3f1":"#eef8ef";
+  el.style.border=`1px solid ${isError?"#f2b8ae":"#bfe0c2"}`;
+  el.style.color=isError?"#9f2f21":"#1f6a2b";
+}
+
+async function hydrateEmployeePortalFieldsFromSupabase(){
+  if(!window._supabaseClient || !currentOrgId) return;
+  const { data, error } = await window._supabaseClient
+    .from("employees")
+    .select("id, name, role, phone, hourly_rate, color, employee_code, is_active, org_id")
+    .eq("org_id", currentOrgId)
+    .order("id", { ascending: true });
+  if(error || !Array.isArray(data)) {
+    if (error) showStaffSaveMessage(error.message || "Failed to load employees from Supabase", true);
+    return;
+  }
+
+  employees = data.map((r, idx)=>({
+    id: Number(r.id),
+    name: r.name || `Employee ${r.id}`,
+    role: r.role || "staff",
+    hourly_rate: Number.isFinite(Number(r.hourly_rate)) ? Number(r.hourly_rate) : 0,
+    phone: r.phone || "",
+    color: r.color || COLORS[idx % COLORS.length],
+    employee_code: r.employee_code ? String(r.employee_code) : "",
+    is_active: r.is_active !== false,
+  }));
+
+  renderDrawer();
+}
+
+
 // ── Render ──
-function render() {
+function syncLayoutHeights() {}
+
+
+function updateWeekStats() {
   const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
   const opt={month:"short",day:"numeric"};
   document.getElementById("weekLabel").textContent=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
@@ -395,10 +953,112 @@ function render() {
   document.getElementById("statHours").textContent=totalH.toFixed(1)+"h";
   document.getElementById("statShifts").textContent=shifts.length;
   document.getElementById("statCost").textContent=fmtD(totalC);
-  renderSidebar(); renderGrid(); renderDrawer();
 }
 
+function render() {
+  updateWeekStats();
+  document.querySelector(".app-body")?.classList.toggle("unified", USE_UNIFIED_GRID);
+  if (USE_UNIFIED_GRID) {
+    renderUnifiedGrid();
+  } else {
+    renderSidebar();
+    renderGrid();
+  }
+  renderDrawer();
+}
+
+function bindUnifiedGridEvents() {
+  if (bindUnifiedGridEvents._bound) return;
+  bindUnifiedGridEvents._bound = true;
+  const grid = document.getElementById("scheduleGrid");
+
+  grid.addEventListener("click", (e) => {
+    if (!USE_UNIFIED_GRID) return;
+    const actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+    if (action === "add-shift") {
+      openAddShift(parseInt(actionEl.dataset.empId, 10), parseInt(actionEl.dataset.day, 10));
+      return;
+    }
+    if (action === "edit-shift") {
+      openEditShift(parseInt(actionEl.dataset.shiftId, 10));
+      return;
+    }
+    if (action === "delete-shift") {
+      e.stopPropagation();
+      deleteShift(parseInt(actionEl.dataset.shiftId, 10));
+    }
+  });
+
+  grid.addEventListener("dblclick", (e) => {
+    if (!USE_UNIFIED_GRID) return;
+    const dayCell = e.target.closest(".ug-day-cell[data-emp-id][data-day]");
+    if (!dayCell) return;
+    openAddShift(parseInt(dayCell.dataset.empId, 10), parseInt(dayCell.dataset.day, 10));
+  });
+}
+
+function renderUnifiedGrid() {
+  const t0 = performance.now();
+  const grid = document.getElementById("scheduleGrid");
+  const ws=weekStart(weekOff);
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  let html = `<div class="sidebar-header ug-head ug-staff-head">Staff</div>`;
+  html += DAYS.map((d,i)=>{
+    const dd=new Date(ws); dd.setDate(ws.getDate()+i);
+    const isToday=dd.getTime()===today.getTime();
+    const dh=shifts.filter(s=>s.day===i).reduce((a,s)=>a+hrs(s),0);
+    const dc=shifts.filter(s=>s.day===i).reduce((a,s)=>a+cost(s),0);
+    return `<div class="day-header ug-head${isToday?" today":""}">
+      <div class="day-name">${d}</div>
+      <div class="day-date">${dd.getDate()}</div>
+      <div class="day-total">${dh>0?`${dh.toFixed(1)}h · ${fmtD(dc)}`:""}</div>
+    </div>`;
+  }).join("");
+
+  if (!employees.length) {
+    html += `<div class="employee-row ug-staff-cell"><div class="emp-name">No staff</div></div>`;
+    html += `<div class="no-emp-grid" style="grid-column:2/-1">Open "Manage Staff" to add employees,<br>then start scheduling.</div>`;
+  } else {
+    employees.forEach((emp,ri)=>{
+      const h=empHrs(emp.id), c=empCost(emp.id);
+      html += `<div class="employee-row ug-staff-cell">
+          <div class="avatar" style="background:${emp.color}">${ini(emp.name)}</div>
+          <div style="min-width:0;flex:1">
+            <div class="emp-name">${emp.name}</div>
+            <div class="emp-role">${emp.role}</div>
+          </div>
+          <div class="emp-hours">
+            <div>${h>0?h.toFixed(1)+"h":""}</div>
+            <div class="emp-cost">${c>0?fmtD(c):""}</div>
+          </div>
+        </div>`;
+
+      for(let d=0; d<7; d++){
+        const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
+        html += `<div class="grid-cell ug-day-cell${ri%2?" alt":""}" data-emp-id="${emp.id}" data-day="${d}">
+          ${cs.map(s=>`
+            <div class="shift-block" data-role="${emp.role}" data-action="edit-shift" data-shift-id="${s.id}">
+              <button class="del-btn" data-action="delete-shift" data-shift-id="${s.id}">×</button>
+              <div>${s.note||emp.name.split(" ")[0]}</div>
+              <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
+            </div>`).join("")}
+          <button class="add-shift-btn" data-action="add-shift" data-emp-id="${emp.id}" data-day="${d}">+</button>
+        </div>`;
+      }
+    });
+  }
+
+  grid.classList.add("unified");
+  grid.innerHTML = html;
+  perfLog("renderUnifiedGrid", t0);
+}
+
+
 function renderSidebar() {
+  const t0 = performance.now();
   document.getElementById("sidebarList").innerHTML = employees.length===0
     ? `<div class="empty-state">No staff yet.<br>Open Manage Staff →</div>`
     : employees.map(e=>{
@@ -415,9 +1075,11 @@ function renderSidebar() {
           </div>
         </div>`;
       }).join("");
+  perfLog("renderSidebar", t0);
 }
 
 function renderGrid() {
+  const t0 = performance.now();
   const ws=weekStart(weekOff);
   const today=new Date(); today.setHours(0,0,0,0);
   let html=DAYS.map((d,i)=>{
@@ -438,18 +1100,21 @@ function renderGrid() {
       for(let d=0;d<7;d++){
         const cs=shifts.filter(s=>s.empId===emp.id&&s.day===d);
         html+=`<div class="grid-cell${ri%2?" alt":""}" ondblclick="openAddShift(${emp.id},${d})">
+          <div class="shift-stack">
           ${cs.map(s=>`
             <div class="shift-block" data-role="${emp.role}" onclick="openEditShift(${s.id})">
               <button class="del-btn" onclick="event.stopPropagation();deleteShift(${s.id})">×</button>
               <div>${s.note||emp.name.split(" ")[0]}</div>
               <div class="shift-time">${fmtT(s.start)}–${fmtT(s.end)}</div>
             </div>`).join("")}
+          </div>
           <button class="add-shift-btn" onclick="openAddShift(${emp.id},${d})">+</button>
         </div>`;
       }
     });
   }
   document.getElementById("scheduleGrid").innerHTML=html;
+  perfLog("renderGrid", t0);
 }
 
 function renderDrawer() {
@@ -458,6 +1123,18 @@ function renderDrawer() {
   document.getElementById("drawerHours").textContent=totalH.toFixed(1)+"h";
   document.getElementById("drawerCost").textContent=fmtD(totalC);
   document.getElementById("drawerCount").textContent=employees.length;
+  document.getElementById("templateList").innerHTML = templates.length===0
+    ? `<div class="empty-state" style="padding:8px 0">No templates yet.</div>`
+    : templates.map(t=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Updated ${new Date(t.updatedAt).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:4px 8px" onclick="renameTemplate('${t.id}')">Rename</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;color:var(--accent)" onclick="deleteTemplate('${t.id}')">Delete</button>
+      </div>
+    `).join("");
   document.getElementById("staffList").innerHTML = employees.length===0
     ? `<div class="empty-state">No employees yet.<br>Add one above.</div>`
     : employees.map(e=>{
@@ -472,7 +1149,7 @@ function renderDrawer() {
             </div>
             <div class="staff-rate-wrap">
               <span class="rate-sym">$</span>
-              <input class="rate-input" type="number" value="${e.rate||0}" min="0" step="0.5"
+              <input class="rate-input" type="number" value="${e.hourly_rate||0}" min="0" step="0.5"
                 onchange="updateRate(${e.id},this.value)" title="Hourly rate">
               <span class="rate-sym">/hr</span>
             </div>
@@ -491,6 +1168,14 @@ function renderDrawer() {
             <span class="phone-status ${hasPhone?"has-phone":"no-phone"}" id="phoneStatus_${e.id}">
               ${hasPhone?"✓ SMS ready":"no phone"}
             </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+            <span style="font-size:12px;color:var(--text-muted);min-width:130px">Employee Code (4 digits)</span>
+            <input class="phone-input" style="max-width:110px" type="text" inputmode="numeric" maxlength="4" placeholder="1234"
+              value="${e.employee_code||""}"
+              onchange="updateEmployeeCode(${e.id},this.value)">
+            <button class="btn btn-ghost" style="padding:4px 8px" onclick="generateEmployeeCodeFor(${e.id})">Generate</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.is_active===false?"":"checked"} onchange="updateEmployeeActive(${e.id},this.checked)">Active</label>
           </div>
         </div>`;
       }).join("");
@@ -515,13 +1200,21 @@ function addEmployee(){
   const name=document.getElementById("newName").value.trim();
   if(!name){ document.getElementById("newName").focus(); return; }
   const role=document.getElementById("newRole").value;
-  const rate=parseFloat(document.getElementById("newRate").value)||0;
+  const hourly_rate=parseFloat(document.getElementById("newRate").value)||0;
   const phone=document.getElementById("newPhone").value.trim();
-  employees.push({ id:nextEid++, name, role, rate, phone, color:COLORS[employees.length%COLORS.length] });
+  const employeeCode = generateUniqueEmployeeCode();
+
+  employees.push({
+    id:nextEid++, name, role, hourly_rate, phone,
+    employee_code: employeeCode || "",
+    is_active: true,
+    color:COLORS[employees.length%COLORS.length]
+  });
   document.getElementById("newName").value="";
   document.getElementById("newRate").value="";
   document.getElementById("newPhone").value="";
   persist(); render();
+  if(employeeCode) alert(`Employee code created: ${employeeCode}`);
 }
 function removeEmployee(id){
   if(!confirm("Remove this employee and all their shifts?")) return;
@@ -531,13 +1224,14 @@ function removeEmployee(id){
 }
 function updateRate(id,val){
   const e=employees.find(x=>x.id===id);
-  if(e){ e.rate=parseFloat(val)||0; persist(); render(); }
+  if(e){ e.hourly_rate=parseFloat(val)||0; persist(); saveEmployeeToSupabase(e).then((r)=>{ if(!r.ok && !r.skipped) showStaffSaveMessage(r.error?.message||"Could not save hourly rate", true); else showStaffSaveMessage("Hourly rate saved."); }); render(); }
 }
 function updatePhone(id,val){
   const e=employees.find(x=>x.id===id);
   if(e){
     e.phone=val.trim();
     persist();
+    saveEmployeeToSupabase(e).then((r)=>{ if(!r.ok && !r.skipped) showStaffSaveMessage(r.error?.message||"Could not save phone", true); });
     // update status badge inline without full re-render
     const badge=document.getElementById(`phoneStatus_${id}`);
     if(badge){
@@ -548,10 +1242,104 @@ function updatePhone(id,val){
   }
 }
 
+async function saveEmployeeToSupabase(emp){
+  if (!window._supabaseClient || !emp || emp.id == null) return { ok:false, skipped:true };
+  const payload = {
+    name: emp.name || null,
+    role: emp.role || null,
+    phone: emp.phone || null,
+    hourly_rate: Number.isFinite(Number(emp.hourly_rate)) ? Number(emp.hourly_rate) : 0,
+    employee_code: emp.employee_code || null,
+    is_active: !!emp.is_active,
+  };
+  const { error } = await window._supabaseClient
+    .from("employees")
+    .update(payload)
+    .eq("id", emp.id);
+
+  if (error) {
+    const msg = (error.message || "").toLowerCase();
+    const isUnique = error.code === "23505" || msg.includes("duplicate") || msg.includes("unique");
+    return { ok:false, unique:isUnique, error };
+  }
+  return { ok:true };
+}
+
+async function updateEmployeeCode(id,val){
+  const code=String(val||"").trim();
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  if(code && !/^\d{4}$/.test(code)){
+    showStaffSaveMessage("Employee code must be exactly 4 digits or blank.", true);
+    renderDrawer();
+    return;
+  }
+  const dupe=employees.find(x=>x.id!==id && String(x.employee_code||"")===code);
+  if(dupe){
+    showStaffSaveMessage("That code is already taken. Pick a different 4-digit code.", true);
+    renderDrawer();
+    return;
+  }
+  const prev=e.employee_code||"";
+  e.employee_code=code;
+  persist();
+  const result = await saveEmployeeToSupabase(e);
+  if (!result.ok && !result.skipped) {
+    e.employee_code=prev;
+    persist();
+    renderDrawer();
+    showStaffSaveMessage(result.unique ? "That code is already taken. Pick a different 4-digit code." : (result?.error?.message || "Could not save employee code"), true);
+    return;
+  }
+  await hydrateEmployeePortalFieldsFromSupabase();
+  showStaffSaveMessage(`Saved employee_code=${e.employee_code||""} to Supabase for employeeId=${e.id}`);
+}
+async function generateEmployeeCodeFor(id){
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  let attempts=0;
+  let code=null;
+  while(attempts<10){
+    const c=generateUniqueEmployeeCode();
+    if(!c) break;
+    code=c;
+    e.employee_code=code;
+    persist();
+    const result = await saveEmployeeToSupabase(e);
+    if(result.ok || result.skipped){
+      renderDrawer();
+      await hydrateEmployeePortalFieldsFromSupabase();
+      showStaffSaveMessage(`Saved employee_code=${code} to Supabase for employeeId=${e.id}`);
+      return;
+    }
+    if(!result.unique) break;
+    attempts++;
+  }
+  showStaffSaveMessage("Unable to generate a unique 4-digit code after several tries.", true);
+  renderDrawer();
+}
+async function updateEmployeeActive(id,checked){
+  const e=employees.find(x=>x.id===id);
+  if(!e) return;
+  const prev=e.is_active;
+  e.is_active=!!checked;
+  persist();
+  const result = await saveEmployeeToSupabase(e);
+  if(!result.ok && !result.skipped){
+    e.is_active=prev;
+    persist();
+    renderDrawer();
+    showStaffSaveMessage(result?.error?.message || "Could not save active status", true);
+    return;
+  }
+  await hydrateEmployeePortalFieldsFromSupabase();
+  showStaffSaveMessage(`Saved employee_code=${e.employee_code||""} to Supabase for employeeId=${e.id}`);
+}
+
 // ── Shifts ──
 function buildTimeOptions() {
   const opts=[];
-  for(let h=0;h<24;h++) for(let m=0;m<60;m+=15){
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=TIME_STEP_MINUTES){
     const val=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
     const ampm=h>=12?"pm":"am"; const hh=h%12||12;
     const label=m===0?`${hh}:00 ${ampm}`:`${hh}:${String(m).padStart(2,"0")} ${ampm}`;
@@ -605,41 +1393,141 @@ function saveShift(){
 function deleteShift(id){ shifts=shifts.filter(s=>s.id!==id); persist(); render(); }
 function clearWeek(){ if(!shifts.length||!confirm("Clear all shifts?")) return; shifts=[]; persist(); render(); }
 
+// ── Templates ──
+function currentWeekStartISO(){
+  const ws=weekStart(weekOff);
+  return `${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
+}
+
+function openSaveTemplateModal(){
+  document.getElementById("templateNameInput").value="";
+  document.getElementById("saveTemplateModal").classList.add("open");
+}
+
+function saveTemplateFromCurrentWeek(){
+  const name=document.getElementById("templateNameInput").value.trim();
+  if(!name){ alert("Template name required."); return; }
+  const now=Date.now();
+  const items=shifts.map(s=>({
+    employeeId:String(s.empId), dayIndex:s.day, startTime:s.start, endTime:s.end, notes:s.note||""
+  }));
+  let tpl=templates.find(t=>t.name.toLowerCase()===name.toLowerCase());
+  if(tpl){
+    tpl.items=items; tpl.updatedAt=now; tpl.sourceWeekStart=currentWeekStartISO();
+  } else {
+    tpl={ id:`tpl_${now}_${Math.random().toString(36).slice(2,7)}`, name, createdAt:now, updatedAt:now, sourceWeekStart:currentWeekStartISO(), items };
+    templates.push(tpl);
+  }
+  persist(); renderDrawer(); closeModal("saveTemplateModal");
+  flash(`Template saved: ${tpl.name}`);
+}
+
+function openApplyTemplateModal(){
+  const sel=document.getElementById("applyTemplateSelect");
+  sel.innerHTML=templates.length
+    ? templates.map(t=>`<option value="${t.id}">${t.name}</option>`).join("")
+    : `<option value="">No templates available</option>`;
+  document.getElementById("applyTemplateInfo").textContent=templates.length ? "This will add shifts to the current week." : "Save a template first.";
+  document.getElementById("applyTemplateModal").classList.add("open");
+}
+
+function applySelectedTemplate(){
+  const id=document.getElementById("applyTemplateSelect").value;
+  const tpl=templates.find(t=>t.id===id);
+  if(!tpl){ alert("Select a template."); return; }
+  if(!confirm("This will add shifts to this week. Continue?")) return;
+
+  let added=0, dup=0, missing=0;
+  const missingNames=[];
+  tpl.items.forEach(it=>{
+    const empId=parseInt(it.employeeId,10);
+    const emp=employees.find(e=>e.id===empId);
+    if(!emp){ missing++; if(!missingNames.includes(it.employeeId)) missingNames.push(it.employeeId); return; }
+    const exists=shifts.some(s=>s.empId===empId && s.day===it.dayIndex && s.start===it.startTime && s.end===it.endTime);
+    if(exists){ dup++; return; }
+    shifts.push({ id:nextSid++, empId, day:it.dayIndex, start:it.startTime, end:it.endTime, note:it.notes||"" });
+    added++;
+  });
+  persist(); render(); closeModal("applyTemplateModal");
+  const missTxt=missing?`, Skipped ${missing} missing employee`:"";
+  alert(`Applied template: Added ${added}, Skipped ${dup} duplicates${missTxt}`);
+}
+
+function renameTemplate(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  const n=prompt("Rename template", t.name);
+  if(!n || !n.trim()) return;
+  t.name=n.trim(); t.updatedAt=Date.now();
+  persist(); renderDrawer();
+}
+
+function deleteTemplate(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  if(!confirm(`Delete template "${t.name}"?`)) return;
+  templates=templates.filter(x=>x.id!==id);
+  persist(); renderDrawer();
+}
+
 // ── Modals ──
 function closeModal(id){ document.getElementById(id).classList.remove("open"); }
 document.getElementById("shiftModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("shiftModal"); });
 document.getElementById("publishModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("publishModal"); });
+document.getElementById("saveTemplateModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("saveTemplateModal"); });
+document.getElementById("applyTemplateModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeModal("applyTemplateModal"); });
 document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") addEmployee(); });
 
 // ── Schedule message builder ──
 function buildScheduleMessage(emp) {
-  const ws=weekStart(weekOff), we=new Date(ws); we.setDate(ws.getDate()+6);
-  const opt={month:"short",day:"numeric"};
-  const weekStr=`${ws.toLocaleDateString("en-US",opt)} – ${we.toLocaleDateString("en-US",opt)}`;
+  const ws=weekStart(weekOff);
+  const headerDate=`${DAYS[0]} ${ws.getMonth()+1}/${ws.getDate()}`;
+  const empShifts=shifts
+    .filter(s=>s.empId===emp.id)
+    .sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
 
-  const empShifts=shifts.filter(s=>s.empId===emp.id);
+  const shortTime=(t)=>{
+    const [h,m]=t.split(":").map(Number);
+    const hh=h%12||12;
+    return `${hh}:${String(m).padStart(2,"0")}${h>=12?"p":"a"}`;
+  };
+
   if(!empShifts.length){
-    return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}: You have no shifts scheduled this week.`;
+    return `GCDC Schedule (${headerDate}):\nNo shifts this week.\nReply STOP to opt out.`;
   }
-  const sorted=empShifts.slice().sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
-  const lines=sorted.map(s=>{
-    const note=s.note?` (${s.note})`:"";
-    return `  ${DAY_FULL[s.day]}: ${fmtT(s.start)}–${fmtT(s.end)}${note}`;
-  });
-  const totalH=empShifts.reduce((a,s)=>a+hrs(s),0);
-  return `Hi ${emp.name.split(" ")[0]}! Your schedule for ${weekStr}:\n${lines.join("\n")}\nTotal: ${totalH.toFixed(1)} hrs. Reply STOP to unsubscribe.`;
+
+  const lines=empShifts.map(s=>`${DAYS[s.day]} ${shortTime(s.start)}–${shortTime(s.end)}`);
+  return `GCDC Schedule (${headerDate}):\n${lines.join("\n")}\nReply STOP to opt out.`;
 }
+
+function getPublishRecipients() {
+  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
+  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
+  const recipients=[];
+  const missingPhone=[];
+  const invalidPhone=[];
+
+  scheduledEmps.forEach(emp=>{
+    if(!emp.phone || !emp.phone.trim()) {
+      missingPhone.push(emp);
+      return;
+    }
+    const to = cleanPhone(emp.phone);
+    if(!to){
+      invalidPhone.push(emp);
+      return;
+    }
+    recipients.push({ emp, to, body: buildScheduleMessage(emp) });
+  });
+
+  return { scheduledEmps, recipients, missingPhone, invalidPhone };
+}
+
 
 // ── Publish flow ──
 function openPublishModal(){
   if(!shifts.length){ alert("No shifts scheduled yet."); return; }
 
-  // Figure out who has shifts
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const scheduledEmps=employees.filter(e=>scheduledEmpIds.includes(e.id));
-  const withPhone=scheduledEmps.filter(e=>e.phone&&e.phone.trim());
-  const noPhone=scheduledEmps.filter(e=>!e.phone||!e.phone.trim());
-  const sampleEmp=withPhone[0]||scheduledEmps[0];
+  const { scheduledEmps, recipients, missingPhone, invalidPhone } = getPublishRecipients();
+  const sampleEmp = recipients[0]?.emp || scheduledEmps[0];
 
   let bodyHTML=`
     <div class="publish-preview">
@@ -649,22 +1537,27 @@ function openPublishModal(){
     <div class="publish-recipients">
       <div class="publish-recipients-label">Recipients (${scheduledEmps.length} scheduled this week)</div>
       ${scheduledEmps.map(e=>{
-        const has=!!(e.phone&&e.phone.trim());
+        const formatted = cleanPhone(e.phone||"");
+        const ok = !!formatted;
+        const status = !e.phone||!e.phone.trim() ? "no phone" : ok ? "will receive SMS" : "invalid phone";
         return `<div class="recipient-row">
           <div class="avatar" style="background:${e.color};width:28px;height:28px;font-size:11px;flex-shrink:0">${ini(e.name)}</div>
           <div class="recipient-name">${e.name}</div>
-          <div class="recipient-phone">${has?e.phone:"—"}</div>
-          <span class="recipient-badge ${has?"badge-ok":"badge-warn"}">${has?"will receive SMS":"no phone"}</span>
+          <div class="recipient-phone">${e.phone||"—"}</div>
+          <span class="recipient-badge ${ok?"badge-ok":"badge-warn"}">${status}</span>
         </div>`;
       }).join("")}
     </div>`;
 
-  if(noPhone.length>0){
-    bodyHTML=`<div class="publish-warning">⚠ ${noPhone.length} employee${noPhone.length>1?"s":""} (${noPhone.map(e=>e.name.split(" ")[0]).join(", ")}) ${noPhone.length>1?"have":"has"} no phone number and won't receive a text. Add numbers in Manage Staff.</div>`+bodyHTML;
-  }
-
-  if(!API_BASE){
-    bodyHTML+=`<div class="api-url-note">⚙ <strong>API_BASE not set.</strong> After deploying to Vercel, paste your deployment URL into the <code>API_BASE</code> variable at the top of this file.</div>`;
+  if(missingPhone.length || invalidPhone.length){
+    const warnings=[];
+    if(missingPhone.length){
+      warnings.push(`${missingPhone.length} missing phone`);
+    }
+    if(invalidPhone.length){
+      warnings.push(`${invalidPhone.length} invalid phone format`);
+    }
+    bodyHTML=`<div class="publish-warning">⚠ ${warnings.join(" · ")} — these employees will be skipped.</div>`+bodyHTML;
   }
 
   document.getElementById("publishModalTitle").textContent="Publish Schedule";
@@ -673,74 +1566,165 @@ function openPublishModal(){
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Cancel</button>
     <button class="btn" style="background:var(--green);color:#fff;border-color:var(--green)"
       onclick="sendSchedule()" id="sendBtn"
-      ${withPhone.length===0?"disabled":""}>
-      Send ${withPhone.length} Text${withPhone.length!==1?"s":""}
+      ${recipients.length===0?"disabled":""}>
+      Send ${recipients.length} Text${recipients.length!==1?"s":""}
     </button>`;
 
   document.getElementById("publishModal").classList.add("open");
 }
 
-async function sendSchedule(){
-  const scheduledEmpIds=[...new Set(shifts.map(s=>s.empId))];
-  const recipients=employees.filter(e=>scheduledEmpIds.includes(e.id)&&e.phone&&e.phone.trim());
-  if(!recipients.length){ alert("No recipients with phone numbers."); return; }
 
-  const messages=recipients.map(emp=>({
-    to: cleanPhone(emp.phone),
-    body: buildScheduleMessage(emp),
-    name: emp.name,
-  }));
+async function sendSchedule(){
+  const { recipients } = getPublishRecipients();
+  if(!recipients.length){ alert("No valid recipients with shifts this week."); return; }
+
+  const messages=recipients.map(({emp,to,body})=>({ to, body, name: emp.name }));
+  const ws=weekStart(weekOff);
+  const fromWeekStart=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,"0")}-${String(ws.getDate()).padStart(2,"0")}`;
 
   const btn=document.getElementById("sendBtn");
+  const originalBtnText=btn.innerHTML;
   btn.disabled=true;
   btn.innerHTML=`<span class="spinner"></span> Sending…`;
-
-  // If no API_BASE, show a mock result for demo
-  if(!API_BASE){
-    await new Promise(r=>setTimeout(r,1200));
-    showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"demo", reason:"API_BASE not configured — set your Vercel URL to send real texts." })));
-    return;
-  }
 
   try {
     const res=await fetch(`/api/send-schedule`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages}),
+      body:JSON.stringify({fromWeekStart,messages:messages.map(({to,body})=>({to,body}))}),
     });
     const data=await res.json();
-    const results=data.results.map((r,i)=>({ name:messages[i].name, ...r }));
-    showPublishResults(results);
+    if(!res.ok && !data.results){
+      throw new Error(data.error || `Send failed (${res.status})`);
+    }
+    const results=(data.results||[]).map((r,i)=>({ name:messages[i]?.name||"Unknown", ...r }));
+    showPublishResults(results, data.sent, data.failed);
   } catch(err){
     showPublishResults(messages.map(m=>({ name:m.name, to:m.to, status:"failed", reason: err.message })));
+  } finally {
+    if(document.getElementById("sendBtn")){
+      btn.disabled=false;
+      btn.innerHTML=originalBtnText;
+    }
   }
 }
 
-function showPublishResults(results){
-  const allOk=results.every(r=>r.status==="sent"||r.status==="demo");
+
+function showPublishResults(results, sentCountOverride, failedCountOverride){
+  const sentCount = Number.isInteger(sentCountOverride) ? sentCountOverride : results.filter(r=>r.status==="sent").length;
+  const failedCount = Number.isInteger(failedCountOverride) ? failedCountOverride : results.filter(r=>r.status!=="sent").length;
+  const allOk=failedCount===0;
+  const failureItems = results.filter(r=>r.status!=="sent");
+
   document.getElementById("publishModalTitle").textContent= allOk ? "✓ Schedule Sent!" : "Send Results";
   document.getElementById("publishModalBody").innerHTML=`
     <div class="publish-recipients" style="padding-top:16px">
-      <div class="publish-recipients-label">Results</div>
+      <div class="publish-recipients-label">Sent ${sentCount} / Failed ${failedCount}</div>
       ${results.map(r=>`
         <div class="result-item">
           <div class="result-name">${r.name}</div>
           <div class="result-detail">${r.to||""}</div>
-          <span class="recipient-badge ${r.status==="sent"?"badge-sent":r.status==="demo"?"badge-ok":"badge-fail"}">
-            ${r.status==="sent"?"✓ sent":r.status==="demo"?"demo":r.status==="skipped"?"skipped":"✗ failed"}
+          <span class="recipient-badge ${r.status==="sent"?"badge-sent":"badge-fail"}">
+            ${r.status==="sent"?"✓ sent":"✗ failed"}
           </span>
         </div>
-        ${r.reason?`<div style="padding:2px 0 6px 2px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">${escHtml(r.reason)}</div>`:""}
       `).join("")}
+      ${failureItems.length?`
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text-muted)">Failure details (${failureItems.length})</summary>
+          <div style="margin-top:8px">
+            ${failureItems.map(r=>`<div style="padding:4px 0;font-size:12px;color:var(--text-muted)"><strong style="color:var(--text)">${r.name}</strong>: ${escHtml(r.reason||"Unknown error")}</div>`).join("")}
+          </div>
+        </details>`:""}
     </div>`;
   document.getElementById("publishModalFooter").innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('publishModal')">Close</button>`;
-  if(allOk && results.some(r=>r.status==="sent")) flash("📤 Schedule sent!");
+  flash(`Sent ${sentCount} / Failed ${failedCount}`);
 }
+
+
+function bootInitialRender() {
+  const bootStart = performance.now();
+
+  const watchdog = setTimeout(() => {
+    if (!window.__firstInteractive) {
+      window.__SAFE_MODE = true;
+      console.warn("[perf] Safe Mode enabled after startup watchdog timeout");
+      logPerfSummaryIfSlow();
+    }
+  }, 2000);
+
+  const loadStart = performance.now();
+  loadData();
+  perfLog("loadData/localStorage", loadStart);
+  warnSlowPhase("parseStorage", loadStart);
+
+  setTimeout(runOverlayBlockerWatchdog, 750);
+  bindUnifiedGridEvents();
+
+  requestAnimationFrame(() => {
+    render();
+    window.__firstInteractive = true;
+    clearTimeout(watchdog);
+    warnSlowPhase("bootTotal", bootStart);
+  });
+}
+
 
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-render();
+(async function boot(){
+  const response = await fetch("/api/supabase-config", { cache: "no-store" });
+  let cfg = null;
+  try {
+    cfg = await response.json();
+  } catch (_e) {
+    cfg = null;
+  }
+
+  if (!response.ok) {
+    const errMsg = (cfg && cfg.error) || `Failed to load /api/supabase-config (${response.status})`;
+    throw new Error(errMsg);
+  }
+  if (!cfg || !cfg.url || !cfg.anonKey) {
+    throw new Error("Supabase config is missing url or anonKey.");
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    throw new Error("Supabase CDN failed to load createClient.");
+  }
+
+  window._supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+
+  const callbackState = parseAuthCallbackState();
+  let loginMessage = "";
+
+  if (callbackState.authError) {
+    loginMessage = "This sign-in link expired. Request a new one.";
+  }
+
+  if (callbackState.hasAuthParams && callbackState.hasCode) {
+    const { error } = await window._supabaseClient.auth.exchangeCodeForSession(window.location.href);
+    if (error) {
+      throw new Error(error.message || "Unable to complete sign-in link exchange.");
+    }
+  }
+
+  if (callbackState.hasAuthParams || callbackState.authError) {
+    history.replaceState({}, document.title, callbackState.cleanPath);
+    if (!window.location.hash) {
+      window.location.hash = "#manager";
+    }
+  }
+
+  managerDefaultLoginMessage = loginMessage;
+
+  document.getElementById("ownerLoginBtn")?.addEventListener("click", handleOwnerLogin);
+  document.getElementById("ownerPassword")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleOwnerLogin();
+  });
+  window.addEventListener("hashchange", routeByHash);
+  routeByHash();
+})().catch(showFatal);
 </script>
 </body>
 </html>
