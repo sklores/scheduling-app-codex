@@ -522,6 +522,8 @@ async function ensureManagerProfileAndRole() {
     throw new Error("Manager profile is missing after bootstrap.");
   }
 
+  currentOrgId = profile.org_id || null;
+
   if (profile.role === "employee") {
     window.location.href = "/employee.html";
     return { redirected: true };
@@ -585,6 +587,7 @@ async function handleOwnerLogin() {
 
 let managerAuthInitialized = false;
 let managerDefaultLoginMessage = "";
+let currentOrgId = null;
 
 function routeByHash() {
   const hash = window.location.hash || "";
@@ -825,15 +828,10 @@ function loadData() {
       localStorage.clear();
       localStorage.setItem("sh_version", "3");
     }
-    employees = JSON.parse(localStorage.getItem("sh_emp"))    || seed().employees;
+    employees = seed().employees;
     shifts    = JSON.parse(localStorage.getItem("sh_shifts")) || seed().shifts;
     templates = JSON.parse(localStorage.getItem("scheduleTemplates")) || [];
   } catch(_) { const s=seed(); employees=s.employees; shifts=s.shifts; templates=[]; }
-  employees = (employees || []).map((e) => ({
-    ...e,
-    isActive: e.isActive !== undefined ? !!e.isActive : (e.is_active !== undefined ? !!e.is_active : true),
-    employeeCode: e.employeeCode !== undefined ? String(e.employeeCode || "") : String(e.employee_code || ""),
-  }));
   nextEid = Math.max(0, ...employees.map(e=>e.id)) + 1;
   nextSid = Math.max(0, ...shifts.map(s=>s.id)) + 1;
   window.__BOOT_EMP_COUNT = employees.length;
@@ -841,7 +839,6 @@ function loadData() {
   updateBootDiag("parseStorage:parsed-counts");
 }
 function persist() {
-  localStorage.setItem("sh_emp",    JSON.stringify(employees));
   localStorage.setItem("sh_shifts", JSON.stringify(shifts));
   localStorage.setItem("scheduleTemplates", JSON.stringify(templates));
   flash("✓ Saved");
@@ -893,7 +890,7 @@ function generateEmployeeCode(){
 function generateUniqueEmployeeCode(){
   for(let i=0;i<50;i++){
     const code=generateEmployeeCode();
-    if(!employees.some(e=>String(e.employeeCode||"")===code)) return code;
+    if(!employees.some(e=>String(e.employee_code||"")===code)) return code;
   }
   return null;
 }
@@ -920,24 +917,31 @@ function showStaffSaveMessage(msg="", isError=false){
 }
 
 async function hydrateEmployeePortalFieldsFromSupabase(){
-  if(!window._supabaseClient) return;
+  if(!window._supabaseClient || !currentOrgId) return;
   const { data, error } = await window._supabaseClient
     .from("employees")
-    .select("id, employee_code, is_active");
-  if(error || !Array.isArray(data)) return;
-  const byId = new Map(data.map((r)=>[Number(r.id), r]));
-  employees = employees.map((e)=>{
-    const row = byId.get(Number(e.id));
-    if(!row) return e;
-    return {
-      ...e,
-      employeeCode: row.employee_code ? String(row.employee_code) : "",
-      isActive: row.is_active !== false,
-    };
-  });
-  persist();
+    .select("id, name, role, phone, rate, hourly_rate, color, employee_code, is_active, org_id")
+    .eq("org_id", currentOrgId)
+    .order("id", { ascending: true });
+  if(error || !Array.isArray(data)) {
+    if (error) showStaffSaveMessage(error.message || "Failed to load employees from Supabase", true);
+    return;
+  }
+
+  employees = data.map((r, idx)=>({
+    id: Number(r.id),
+    name: r.name || `Employee ${r.id}`,
+    role: r.role || "staff",
+    rate: Number.isFinite(Number(r.rate)) ? Number(r.rate) : (Number.isFinite(Number(r.hourly_rate)) ? Number(r.hourly_rate) : 0),
+    phone: r.phone || "",
+    color: r.color || COLORS[idx % COLORS.length],
+    employee_code: r.employee_code ? String(r.employee_code) : "",
+    is_active: r.is_active !== false,
+  }));
+
   renderDrawer();
 }
+
 
 // ── Render ──
 function syncLayoutHeights() {}
@@ -1171,10 +1175,10 @@ function renderDrawer() {
           <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
             <span style="font-size:12px;color:var(--text-muted);min-width:130px">Employee Code (4 digits)</span>
             <input class="phone-input" style="max-width:110px" type="text" inputmode="numeric" maxlength="4" placeholder="1234"
-              value="${e.employeeCode||""}"
+              value="${e.employee_code||""}"
               onchange="updateEmployeeCode(${e.id},this.value)">
             <button class="btn btn-ghost" style="padding:4px 8px" onclick="generateEmployeeCodeFor(${e.id})">Generate</button>
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.isActive===false?"":"checked"} onchange="updateEmployeeActive(${e.id},this.checked)">Active</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)"><input type="checkbox" ${e.is_active===false?"":"checked"} onchange="updateEmployeeActive(${e.id},this.checked)">Active</label>
           </div>
         </div>`;
       }).join("");
@@ -1205,8 +1209,8 @@ async function addEmployee(){
 
   employees.push({
     id:nextEid++, name, role, rate, phone,
-    employeeCode: employeeCode || "",
-    isActive: true,
+    employee_code: employeeCode || "",
+    is_active: true,
     color:COLORS[employees.length%COLORS.length]
   });
   document.getElementById("newName").value="";
@@ -1243,8 +1247,8 @@ function updatePhone(id,val){
 async function saveEmployeePortalFieldsToSupabase(emp){
   if (!window._supabaseClient || !emp || emp.id == null) return { ok:false, skipped:true };
   const payload = {
-    employee_code: emp.employeeCode || null,
-    is_active: !!(emp.isActive !== undefined ? emp.isActive : emp.is_active),
+    employee_code: emp.employee_code || null,
+    is_active: !!emp.is_active,
   };
   const { error } = await window._supabaseClient
     .from("employees")
@@ -1268,24 +1272,25 @@ async function updateEmployeeCode(id,val){
     renderDrawer();
     return;
   }
-  const dupe=employees.find(x=>x.id!==id && String(x.employeeCode||"")===code);
+  const dupe=employees.find(x=>x.id!==id && String(x.employee_code||"")===code);
   if(dupe){
     showStaffSaveMessage("That code is already taken. Pick a different 4-digit code.", true);
     renderDrawer();
     return;
   }
-  const prev=e.employeeCode||"";
-  e.employeeCode=code;
+  const prev=e.employee_code||"";
+  e.employee_code=code;
   persist();
   const result = await saveEmployeePortalFieldsToSupabase(e);
   if (!result.ok && !result.skipped) {
-    e.employeeCode=prev;
+    e.employee_code=prev;
     persist();
     renderDrawer();
     showStaffSaveMessage(result.unique ? "That code is already taken. Pick a different 4-digit code." : (result?.error?.message || "Could not save employee code"), true);
     return;
   }
-  showStaffSaveMessage("Employee code saved.");
+  await hydrateEmployeePortalFieldsFromSupabase();
+  showStaffSaveMessage(`Saved employee_code=${e.employee_code||""} to Supabase for employeeId=${e.id}`);
 }
 async function generateEmployeeCodeFor(id){
   const e=employees.find(x=>x.id===id);
@@ -1296,12 +1301,13 @@ async function generateEmployeeCodeFor(id){
     const c=generateUniqueEmployeeCode();
     if(!c) break;
     code=c;
-    e.employeeCode=code;
+    e.employee_code=code;
     persist();
     const result = await saveEmployeePortalFieldsToSupabase(e);
     if(result.ok || result.skipped){
       renderDrawer();
-      showStaffSaveMessage(`Code generated: ${code}`);
+      await hydrateEmployeePortalFieldsFromSupabase();
+      showStaffSaveMessage(`Saved employee_code=${code} to Supabase for employeeId=${e.id}`);
       return;
     }
     if(!result.unique) break;
@@ -1313,16 +1319,19 @@ async function generateEmployeeCodeFor(id){
 async function updateEmployeeActive(id,checked){
   const e=employees.find(x=>x.id===id);
   if(!e) return;
-  const prev=e.isActive;
-  e.isActive=!!checked;
+  const prev=e.is_active;
+  e.is_active=!!checked;
   persist();
   const result = await saveEmployeePortalFieldsToSupabase(e);
   if(!result.ok && !result.skipped){
-    e.isActive=prev;
+    e.is_active=prev;
     persist();
     renderDrawer();
     showStaffSaveMessage(result?.error?.message || "Could not save active status", true);
+    return;
   }
+  await hydrateEmployeePortalFieldsFromSupabase();
+  showStaffSaveMessage(`Saved employee_code=${e.employee_code||""} to Supabase for employeeId=${e.id}`);
 }
 
 // ── Shifts ──
