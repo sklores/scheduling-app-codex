@@ -588,8 +588,33 @@ async function handleOwnerLogin() {
 let managerAuthInitialized = false;
 let managerDefaultLoginMessage = "";
 let currentOrgId = null;
+window.__AUTH_DISABLED = false;
+window.__DEV_AUTH_BYPASS = false;
+
+function getDevAuthBypassState() {
+  const url = new URL(window.location.href);
+  const queryToggle = url.searchParams.get("devAuthBypass");
+  if (queryToggle === "1") {
+    localStorage.setItem("dev_auth_bypass", "1");
+    url.searchParams.delete("devAuthBypass");
+    history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+    return true;
+  }
+  if (queryToggle === "0") {
+    localStorage.removeItem("dev_auth_bypass");
+    url.searchParams.delete("devAuthBypass");
+    history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+    return false;
+  }
+  return localStorage.getItem("dev_auth_bypass") === "1";
+}
 
 function routeByHash() {
+  if (window.__AUTH_DISABLED || window.__DEV_AUTH_BYPASS) {
+    showAppShell();
+    return;
+  }
+
   const hash = window.location.hash || "";
   if (!hash) {
     showLandingGate();
@@ -1718,6 +1743,16 @@ function bootInitialRender() {
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 (async function boot(){
+  window.__DEV_AUTH_BYPASS = getDevAuthBypassState();
+  if (window.__DEV_AUTH_BYPASS) {
+    window.__AUTH_DISABLED = true;
+    localStorage.setItem("owner_mode", "1");
+    managerDefaultLoginMessage = "Auth bypass enabled via ?devAuthBypass=1.";
+    window.addEventListener("hashchange", routeByHash);
+    routeByHash();
+    return;
+  }
+
   const response = await fetch("/api/supabase-config", { cache: "no-store" });
   let cfg = null;
   try {
@@ -1730,6 +1765,15 @@ function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
     const errMsg = (cfg && cfg.error) || `Failed to load /api/supabase-config (${response.status})`;
     throw new Error(errMsg);
   }
+  window.__AUTH_DISABLED = !!cfg?.authDisabled;
+  if (window.__AUTH_DISABLED) {
+    localStorage.setItem("owner_mode", "1");
+    managerDefaultLoginMessage = "Auth disabled via AUTH_DISABLED=true.";
+    window.addEventListener("hashchange", routeByHash);
+    routeByHash();
+    return;
+  }
+
   if (!cfg || !cfg.url || !cfg.anonKey) {
     throw new Error("Supabase config is missing url or anonKey.");
   }
