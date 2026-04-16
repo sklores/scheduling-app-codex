@@ -588,8 +588,14 @@ async function handleOwnerLogin() {
 let managerAuthInitialized = false;
 let managerDefaultLoginMessage = "";
 let currentOrgId = null;
+window.__AUTH_DISABLED = false;
 
 function routeByHash() {
+  if (window.__AUTH_DISABLED) {
+    showAppShell();
+    return;
+  }
+
   const hash = window.location.hash || "";
   if (!hash) {
     showLandingGate();
@@ -1730,6 +1736,15 @@ function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace
     const errMsg = (cfg && cfg.error) || `Failed to load /api/supabase-config (${response.status})`;
     throw new Error(errMsg);
   }
+  window.__AUTH_DISABLED = !!cfg?.authDisabled;
+  if (window.__AUTH_DISABLED) {
+    localStorage.setItem("owner_mode", "1");
+    managerDefaultLoginMessage = "Auth disabled via AUTH_DISABLED=true.";
+    window.addEventListener("hashchange", routeByHash);
+    routeByHash();
+    return;
+  }
+
   if (!cfg || !cfg.url || !cfg.anonKey) {
     throw new Error("Supabase config is missing url or anonKey.");
   }
